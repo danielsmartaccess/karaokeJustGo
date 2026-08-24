@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+
+/*
+ * Design System — Just Go Karaoke
+ * Tokens de marca. Identidade: moderna, tecnológica, divertida, social, cultural.
+ * Não deve parecer app bancário, ERP, cassino ou app infantil.
+ */
+@theme {
+  /* Cores base — palco noturno, derivadas do navy da marca (logo "Just") */
+  --color-stage-950: #050d12;
+  --color-stage-900: #09161e;
+  --color-stage-800: #0d212e;
+  --color-stage-700: #143143;
+  --color-stage-600: #1b435d;
+
+  /* Just Go — azul da marca (logo "Go"), extraído de Just Go 3.jpg */
+  --color-brand-300: #43cafe;
+  --color-brand-400: #1bbffe;
+  --color-brand-500: #01adef;
+  --color-brand-600: #018cc1;
+  --color-brand-700: #016b94;
+
+  /* Acento quente — energia da plateia */
+  --color-glow-400: #fb7185;
+  --color-glow-500: #f43f5e;
+
+  /* Destaque dourado — reconhecimento / prêmio */
+  --color-spotlight-400: #fbbf24;
+  --color-spotlight-500: #f59e0b;
+
+  --color-ink: #f8f8fc;
+  --color-muted: #9a9ab0;
+
+  --radius-card: 1rem;
+
+  --font-display:
+    'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-stage-900);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Suporte a notch em PWA mobile */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}

@@ -1,0 +1,45 @@
+-- FASE 4: catálogo inicial (starter) — curadoria manual, cobre MPB, sertanejo, rock
+-- nacional, pagode e clássicos internacionais de karaokê. Idempotente. O catálogo real
+-- do Armazém Anita entra depois por importação/curadoria do host (não é o objetivo desta
+-- seed — só destrava busca/favoritos para testar a FASE 4).
+
+insert into public.songs (title, artist, genre, language) values
+  ('Evidências', 'Chitãozinho & Xororó', 'Sertanejo', 'pt'),
+  ('Como É Grande O Meu Amor Por Você', 'Roberto Carlos', 'MPB', 'pt'),
+  ('Trem-Bala', 'Ana Vilela', 'MPB', 'pt'),
+  ('Tempo Perdido', 'Legião Urbana', 'Rock Nacional', 'pt'),
+  ('Pais e Filhos', 'Legião Urbana', 'Rock Nacional', 'pt'),
+  ('Anunciação', 'Alceu Valença', 'MPB', 'pt'),
+  ('Águas de Março', 'Tom Jobim', 'MPB', 'pt'),
+  ('Como Nossos Pais', 'Elis Regina', 'MPB', 'pt'),
+  ('Ai Se Eu Te Pego', 'Michel Teló', 'Sertanejo', 'pt'),
+  ('Chão de Giz', 'Zé Ramalho', 'MPB', 'pt'),
+  ('Deus e Eu no Sertão', 'Victor & Leo', 'Sertanejo', 'pt'),
+  ('Cheia de Manias', 'Raça Negra', 'Pagode', 'pt'),
+  ('Metamorfose Ambulante', 'Raul Seixas', 'Rock Nacional', 'pt'),
+  ('Que País É Esse', 'Legião Urbana', 'Rock Nacional', 'pt'),
+  ('É Uma Partida de Futebol', 'Skank', 'Rock Nacional', 'pt'),
+  ('Garota de Ipanema', 'Tom Jobim & Vinícius de Moraes', 'Bossa Nova', 'pt'),
+  ('Deixa Eu Te Amar', 'Thiaguinho', 'Pagode', 'pt'),
+  ('Alagados', 'Barão Vermelho', 'Rock Nacional', 'pt'),
+  ('Fico Assim Sem Você', 'Claudinho & Buchecha', 'Pop', 'pt'),
+  ('Borboletas', 'Marisa Monte', 'MPB', 'pt'),
+  ('É o Amor', 'Zezé Di Camargo & Luciano', 'Sertanejo', 'pt'),
+  ('Show das Poderosas', 'Anitta', 'Pop', 'pt'),
+  ('Meu Bem Querer', 'Djavan', 'MPB', 'pt'),
+  ('I Will Survive', 'Gloria Gaynor', 'Disco', 'en'),
+  ('My Way', 'Frank Sinatra', 'Standards', 'en'),
+  ('Bohemian Rhapsody', 'Queen', 'Rock', 'en'),
+  ('Don''t Stop Believin''', 'Journey', 'Rock', 'en'),
+  ('Livin'' on a Prayer', 'Bon Jovi', 'Rock', 'en'),
+  ('Someone Like You', 'Adele', 'Pop', 'en'),
+  ('Wonderwall', 'Oasis', 'Rock', 'en'),
+  ('Hey Jude', 'The Beatles', 'Rock', 'en'),
+  ('Sweet Child O'' Mine', 'Guns N'' Roses', 'Rock', 'en'),
+  ('Dancing Queen', 'ABBA', 'Pop', 'en'),
+  ('Billie Jean', 'Michael Jackson', 'Pop', 'en'),
+  ('Shape of You', 'Ed Sheeran', 'Pop', 'en'),
+  ('Someone You Loved', 'Lewis Capaldi', 'Pop', 'en'),
+  ('Perfect', 'Ed Sheeran', 'Pop', 'en'),
+  ('Rolling in the Deep', 'Adele', 'Pop', 'en')
+on conflict (title, artist) do nothing;
