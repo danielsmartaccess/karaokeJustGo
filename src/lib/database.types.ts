@@ -18,6 +18,7 @@ export type Database = {
           song_id: string;
           status: Database['public']['Enums']['performance_status'];
           updated_at: string;
+          voting_started_at: string | null;
         };
         Insert: {
           created_at?: string;
@@ -27,6 +28,7 @@ export type Database = {
           song_id: string;
           status?: Database['public']['Enums']['performance_status'];
           updated_at?: string;
+          voting_started_at?: string | null;
         };
         Update: {
           created_at?: string;
@@ -36,6 +38,7 @@ export type Database = {
           song_id?: string;
           status?: Database['public']['Enums']['performance_status'];
           updated_at?: string;
+          voting_started_at?: string | null;
         };
         Relationships: [
           {
@@ -80,6 +83,39 @@ export type Database = {
           whatsapp?: string | null;
         };
         Relationships: [];
+      };
+      session_participants: {
+        Row: {
+          joined_at: string;
+          profile_id: string;
+          session_id: string;
+        };
+        Insert: {
+          joined_at?: string;
+          profile_id: string;
+          session_id: string;
+        };
+        Update: {
+          joined_at?: string;
+          profile_id?: string;
+          session_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'session_participants_profile_id_fkey';
+            columns: ['profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'session_participants_session_id_fkey';
+            columns: ['session_id'];
+            isOneToOne: false;
+            referencedRelation: 'sessions';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       sessions: {
         Row: {
@@ -226,6 +262,57 @@ export type Database = {
           },
         ];
       };
+      votes: {
+        Row: {
+          charisma_score: number;
+          created_at: string;
+          fun_score: number;
+          id: string;
+          performance_id: string;
+          performance_score: number;
+          voice_score: number;
+          voter_id: string;
+          would_sing_along: boolean;
+        };
+        Insert: {
+          charisma_score: number;
+          created_at?: string;
+          fun_score: number;
+          id?: string;
+          performance_id: string;
+          performance_score: number;
+          voice_score: number;
+          voter_id: string;
+          would_sing_along: boolean;
+        };
+        Update: {
+          charisma_score?: number;
+          created_at?: string;
+          fun_score?: number;
+          id?: string;
+          performance_id?: string;
+          performance_score?: number;
+          voice_score?: number;
+          voter_id?: string;
+          would_sing_along?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'votes_performance_id_fkey';
+            columns: ['performance_id'];
+            isOneToOne: false;
+            referencedRelation: 'performances';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'votes_voter_id_fkey';
+            columns: ['voter_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       venue_staff: {
         Row: {
           created_at: string;
@@ -308,6 +395,19 @@ export type Database = {
       };
     };
     Views: {
+      performance_results: {
+        Row: {
+          audience_score: number | null;
+          charisma_avg: number | null;
+          fun_avg: number | null;
+          performance_avg: number | null;
+          performance_id: string | null;
+          sing_along_percent: number | null;
+          voice_avg: number | null;
+          vote_count: number | null;
+        };
+        Relationships: [];
+      };
       public_profiles: {
         Row: {
           avatar_url: string | null;

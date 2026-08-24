@@ -9,6 +9,7 @@ export interface QueueEntry {
   id: string;
   status: Performance['status'];
   createdAt: string;
+  votingStartedAt: string | null;
   song: { id: string; title: string; artist: string } | null;
   performerId: string;
   performerName: string;
@@ -45,6 +46,7 @@ async function hydrate(performances: Performance[]): Promise<QueueEntry[]> {
       id: p.id,
       status: p.status,
       createdAt: p.created_at,
+      votingStartedAt: p.voting_started_at,
       song: song ? { id: song.id, title: song.title, artist: song.artist } : null,
       performerId: p.performer_id,
       performerName: nameById.get(p.performer_id) ?? 'Participante',
@@ -74,6 +76,25 @@ export async function getCurrentPerformance(sessionId: string): Promise<QueueEnt
     .select('*')
     .eq('session_id', sessionId)
     .in('status', ['CALLED', 'PERFORMING'])
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const [entry] = await hydrate([data]);
+  return entry;
+}
+
+/**
+ * Quem está em votação ou com resultado pronto agora (FASE 7). Separado de
+ * `getCurrentPerformance` de propósito: o host pode chamar o próximo cantor
+ * enquanto a votação do anterior ainda está rolando — os dois coexistem.
+ */
+export async function getVotingPerformance(sessionId: string): Promise<QueueEntry | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('performances')
+    .select('*')
+    .eq('session_id', sessionId)
+    .in('status', ['VOTING', 'RESULT'])
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
@@ -137,6 +158,42 @@ export async function markPerforming(performanceId: string): Promise<Performance
   const { data, error } = await supabase
     .from('performances')
     .update({ status: 'PERFORMING' })
+    .eq('id', performanceId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function startVoting(performanceId: string): Promise<Performance> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('performances')
+    .update({ status: 'VOTING' })
+    .eq('id', performanceId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function finishVoting(performanceId: string): Promise<Performance> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('performances')
+    .update({ status: 'RESULT' })
+    .eq('id', performanceId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function completePerformance(performanceId: string): Promise<Performance> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('performances')
+    .update({ status: 'COMPLETED' })
     .eq('id', performanceId)
     .select('*')
     .single();

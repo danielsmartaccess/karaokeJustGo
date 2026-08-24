@@ -127,7 +127,7 @@ Detalhes em [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 | 4    | Músicas (catálogo, busca, favoritos)                | ✅     |
 | 5    | Fila (entrar/sair, fila do host)                    | ✅     |
 | 6    | Apresentação (chamar/cantar, telão, Realtime)       | ✅     |
-| 7    | Votação (janela 60s, categorias, resultado)         | ⏳     |
+| 7    | Votação (janela 60s, categorias, resultado)         | ✅     |
 | 8    | Gamificação (XP, fama, badges, ranking)             | ⏳     |
 | 9    | Premiação (Performance da Noite, prêmio)            | ⏳     |
 | 10   | Polimento · 11 E2E · 12 Deploy                       | ⏳     |

@@ -47,7 +47,18 @@ Validação obrigatória **no backend**:
 - ✅ payload validado (notas inteiras 1–5)
 
 As mesmas regras existem em `src/domain/voting/rules.ts` para guiar a UI, mas a fonte de
-verdade é o servidor.
+verdade é o trigger `validate_vote` no servidor (FASE 7) — testado ao vivo: auto-voto é
+bloqueado na UI antes mesmo de tentar, duplicado e fora da janela são rejeitados pelo
+trigger, resultado agregado nunca expõe voto individual (view `performance_results`).
+
+**"Presente/online" — simplificação deliberada:** "presente" hoje significa "tem uma
+linha em `session_participants`" (já completou o cadastro nesta sessão), não presença
+efêmera via WebSocket. Um trigger SQL não consegue consultar o estado de um canal
+Realtime Presence — isso vive só na memória do servidor Realtime, não no Postgres.
+Implementar presença "de verdade" exigiria uma ponte Realtime→Postgres (ex.: Edge
+Function periódica) — fora de escopo do MVP. Isso significa que alguém que entrou na
+sessão mas já fechou o app ainda consegue votar, tecnicamente. Aceito como limitação
+conhecida, não como buraco descoberto depois.
 
 ## Gamificação
 

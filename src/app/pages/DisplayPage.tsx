@@ -7,14 +7,23 @@ import { getVenueById, type Venue } from '@/data/identity';
 import {
   getCurrentPerformance,
   getQueue,
+  getVotingPerformance,
   subscribeToPerformances,
   type QueueEntry,
 } from '@/data/performances';
+import { getResults, type PerformanceResult } from '@/data/votes';
+import { VOTING_WINDOW_SECONDS } from '@/domain/voting/rules';
 import goMark from '@/assets/go-mark-blue.png';
+
+function secondsLeft(votingStartedAt: string | null): number {
+  if (!votingStartedAt) return 0;
+  const elapsed = (Date.now() - new Date(votingStartedAt).getTime()) / 1000;
+  return Math.max(0, Math.ceil(VOTING_WINDOW_SECONDS - elapsed));
+}
 
 /**
  * Telão (FASE 6): tela pública, só leitura, para o venue projetar. Mostra quem está
- * cantando agora e os próximos da fila, atualizado em tempo real (Realtime).
+ * cantando agora, a votação em andamento e o resultado, tudo em tempo real (Realtime).
  */
 export function DisplayPage() {
   const { code: codeParam } = useParams<{ code?: string }>();
@@ -23,9 +32,12 @@ export function DisplayPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [current, setCurrent] = useState<QueueEntry | null>(null);
+  const [voting, setVoting] = useState<QueueEntry | null>(null);
+  const [results, setResults] = useState<PerformanceResult | null>(null);
   const [upNext, setUpNext] = useState<QueueEntry[]>([]);
   const [loading, setLoading] = useState(Boolean(codeParam));
   const [errorMessage, setErrorMessage] = useState('');
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     if (!codeParam) return;
@@ -57,13 +69,21 @@ export function DisplayPage() {
     }
 
     async function refresh(sessionId: string) {
-      const [currentPerformance, queue] = await Promise.all([
+      const [currentPerformance, votingPerformance, queue] = await Promise.all([
         getCurrentPerformance(sessionId),
+        getVotingPerformance(sessionId),
         getQueue(sessionId),
       ]);
       if (cancelled) return;
       setCurrent(currentPerformance);
+      setVoting(votingPerformance);
       setUpNext(queue.slice(0, 5));
+      if (votingPerformance?.status === 'RESULT') {
+        const r = await getResults(votingPerformance.id);
+        if (!cancelled) setResults(r);
+      } else {
+        setResults(null);
+      }
     }
 
     void load();
@@ -72,6 +92,12 @@ export function DisplayPage() {
       unsubscribe?.();
     };
   }, [codeParam]);
+
+  useEffect(() => {
+    if (voting?.status !== 'VOTING') return;
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [voting?.status]);
 
   function handleCodeSubmit(e: FormEvent) {
     e.preventDefault();
@@ -129,7 +155,34 @@ export function DisplayPage() {
         </p>
       </div>
 
-      {current ? (
+      {voting ? (
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-lg text-muted">
+            {voting.status === 'VOTING' ? '🗳️ Votação aberta' : '🏆 Resultado'}
+          </p>
+          <h1
+            className="text-6xl font-bold text-brand-400"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            {voting.performerName}
+          </h1>
+          <p className="text-2xl text-ink">
+            {voting.song?.title} <span className="text-muted">— {voting.song?.artist}</span>
+          </p>
+          {voting.status === 'VOTING' && (
+            <p className="text-4xl font-bold text-ink">{secondsLeft(voting.votingStartedAt)}s</p>
+          )}
+          {voting.status === 'RESULT' && results && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <p className="text-7xl font-bold text-ink">{results.audience_score}</p>
+              <p className="text-sm uppercase tracking-[0.2em] text-muted">Nota da Plateia</p>
+              <p className="text-lg text-muted">
+                🫶 {results.sing_along_percent}% cantariam junto · {results.vote_count} votos
+              </p>
+            </div>
+          )}
+        </div>
+      ) : current ? (
         <div className="flex flex-col items-center gap-3">
           <p className="text-lg text-muted">
             {current.status === 'PERFORMING' ? '🎤 No palco agora' : 'Preparando…'}

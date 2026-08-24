@@ -4,6 +4,7 @@ import { Button } from '@/ui/Button';
 import {
   getCurrentPerformance,
   getQueue,
+  getVotingPerformance,
   leaveQueue,
   subscribeToPerformances,
   type QueueEntry,
@@ -11,12 +12,13 @@ import {
 import { readActiveSession } from '@/lib/active-session';
 
 /**
- * Fila da sessão (FASE 5) + quem está chamado/cantando agora (FASE 6), ao vivo via
- * Realtime. Votar é FASE 7.
+ * Fila da sessão (FASE 5) + quem está chamado/cantando/em votação (FASE 6/7), ao
+ * vivo via Realtime.
  */
 export function QueuePage() {
   const [activeSession] = useState(readActiveSession);
   const [current, setCurrent] = useState<QueueEntry | null>(null);
+  const [voting, setVoting] = useState<QueueEntry | null>(null);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -29,11 +31,13 @@ export function QueuePage() {
     }
     setErrorMessage('');
     try {
-      const [currentPerformance, entries] = await Promise.all([
+      const [currentPerformance, votingPerformance, entries] = await Promise.all([
         getCurrentPerformance(activeSession.id),
+        getVotingPerformance(activeSession.id),
         getQueue(activeSession.id),
       ]);
       setCurrent(currentPerformance);
+      setVoting(votingPerformance);
       setQueue(entries);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao carregar a fila.');
@@ -116,6 +120,28 @@ export function QueuePage() {
         <p className="text-center text-sm text-muted">
           {current.status === 'PERFORMING' ? '🎤 Cantando agora:' : 'Chamado:'}{' '}
           <span className="text-ink">{current.performerName}</span> — {current.song?.title}
+        </p>
+      )}
+
+      {voting && !voting.isMine && (
+        <Link
+          to="/vote"
+          className="rounded-card border border-glow-500/60 bg-stage-800 px-4 py-3 text-center text-sm text-glow-400 hover:text-glow-300"
+        >
+          {voting.status === 'VOTING'
+            ? `🗳️ Vote em ${voting.performerName} agora!`
+            : `🏆 Resultado de ${voting.performerName} disponível`}
+        </Link>
+      )}
+
+      {voting?.isMine && (
+        <p className="text-center text-sm text-muted">
+          {voting.status === 'VOTING'
+            ? 'A plateia está votando na sua apresentação!'
+            : 'Seu resultado está pronto.'}{' '}
+          <Link to="/vote" className="text-brand-400 hover:text-brand-300">
+            ver
+          </Link>
         </p>
       )}
 

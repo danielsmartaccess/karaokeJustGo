@@ -1,8 +1,23 @@
 import { getSupabase } from '@/lib/supabase';
+import { ensureAnonymousSession } from '@/data/identity';
 import { canTransition, type SessionState } from '@/domain/session/state-machine';
 import type { Tables } from '@/lib/database.types';
 
 export type Session = Tables<'sessions'>;
+
+/**
+ * Marca este profile como "presente" na sessão (docs/SECURITY.md: elegibilidade de
+ * voto exige "votante presente/online"). Proxy simples — já entrou na sessão —, não
+ * presença efêmera via WebSocket (ver nota na migration da FASE 7).
+ */
+export async function recordSessionParticipation(sessionId: string): Promise<void> {
+  const userId = await ensureAnonymousSession();
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('session_participants')
+    .upsert({ session_id: sessionId, profile_id: userId }, { onConflict: 'session_id,profile_id' });
+  if (error) throw error;
+}
 
 export async function getSessionByCode(code: string): Promise<Session | null> {
   const supabase = getSupabase();

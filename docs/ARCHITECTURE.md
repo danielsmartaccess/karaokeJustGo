@@ -69,6 +69,21 @@ vivem no domínio como funções puras. Componentes React apenas as consomem.
 - **`lib/active-session.ts`** — sessão ativa do participante (id + code) persistida em
   `localStorage`, compartilhada entre `JoinPage`, `SongsPage` e `QueuePage`.
 
+## Dados implementados (FASE 7)
+
+- **`data/votes.ts`** — `submitVote`, `getMyVote`, `getResults`. Usa `isValidVote` de
+  `domain/voting/rules.ts` (escrito na FASE 1) para validar o payload antes de enviar —
+  mas quem decide de verdade é o trigger `validate_vote` no servidor.
+- **`data/performances.ts`** ganha `getVotingPerformance` — deliberadamente separada de
+  `getCurrentPerformance` (CALLED/PERFORMING): as duas coexistem, porque o host pode
+  chamar o próximo cantor enquanto a votação do anterior ainda está rolando. `startVoting`,
+  `finishVoting`, `completePerformance` fecham o ciclo QUEUED→…→COMPLETED.
+- **`data/sessions.ts`** ganha `recordSessionParticipation` — grava que o profile entrou
+  na sessão (`session_participants`), chamado no fim do fluxo de `/join`.
+- Encerramento automático da janela de 60s: `HostPage` arma um `setTimeout` client-side
+  que chama `finishVoting` quando o tempo acaba — funciona enquanto a aba do host estiver
+  aberta (é quem está rodando a sessão). Sem cron/Edge Function.
+
 ## Dados implementados (FASE 6)
 
 - **`data/performances.ts`** ganhou `callNext`, `markPerforming` e

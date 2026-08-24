@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/ui/Button';
 import { Input } from '@/ui/Input';
-import { getSessionByCode, type Session } from '@/data/sessions';
+import { getSessionByCode, recordSessionParticipation, type Session } from '@/data/sessions';
 import { upsertMyProfile, getVenueById, type Venue } from '@/data/identity';
 import { isOpenForParticipants } from '@/domain/session/state-machine';
 import { setActiveSession } from '@/lib/active-session';
@@ -61,6 +61,7 @@ export function JoinPage() {
     setErrorMessage('');
     try {
       await upsertMyProfile({ displayName: displayName.trim(), whatsapp: whatsapp.trim() });
+      await recordSessionParticipation(session.id);
       setActiveSession({ id: session.id, code: session.code });
       setStep('joined');
     } catch (err) {

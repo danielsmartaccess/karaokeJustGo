@@ -13,13 +13,19 @@ import { ensureAnonymousSession, getDefaultVenue, getMyVenueStaffRole } from '@/
 import { canTransition, type SessionState } from '@/domain/session/state-machine';
 import {
   callNext,
+  completePerformance,
+  finishVoting,
   getCurrentPerformance,
   getQueue,
+  getVotingPerformance,
   leaveQueue,
   markPerforming,
+  startVoting,
   subscribeToPerformances,
   type QueueEntry,
 } from '@/data/performances';
+import { getResults, type PerformanceResult } from '@/data/votes';
+import { VOTING_WINDOW_SECONDS } from '@/domain/voting/rules';
 import type { Tables } from '@/lib/database.types';
 
 type Venue = Tables<'venues'>;
@@ -51,8 +57,13 @@ export function HostPage() {
   const [queueLoading, setQueueLoading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [currentBySession, setCurrentBySession] = useState<Record<string, QueueEntry | null>>({});
+  const [votingBySession, setVotingBySession] = useState<Record<string, QueueEntry | null>>({});
+  const [resultsByPerformance, setResultsByPerformance] = useState<
+    Record<string, PerformanceResult | null>
+  >({});
   const [callingSessionId, setCallingSessionId] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [votingBusyId, setVotingBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     void bootstrap();
@@ -71,15 +82,49 @@ export function HostPage() {
     const ids = openOrLiveIds ? openOrLiveIds.split(',') : [];
     const unsubscribers = ids.map((id) => {
       void refreshCurrent(id);
-      return subscribeToPerformances(id, () => void refreshCurrent(id));
+      void refreshVoting(id);
+      return subscribeToPerformances(id, () => {
+        void refreshCurrent(id);
+        void refreshVoting(id);
+      });
     });
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, [openOrLiveIds]);
+
+  // Encerra a votação sozinha quando os 60s acabam — sem precisar de cron/servidor,
+  // desde que a aba do host fique aberta (é quem está rodando o show).
+  useEffect(() => {
+    const timers = Object.entries(votingBySession).flatMap(([sessionId, entry]) => {
+      if (entry?.status !== 'VOTING' || !entry.votingStartedAt) return [];
+      const elapsedMs = Date.now() - new Date(entry.votingStartedAt).getTime();
+      const delay = Math.max(0, VOTING_WINDOW_SECONDS * 1000 - elapsedMs) + 500;
+      const timerId = window.setTimeout(() => {
+        void finishVoting(entry.id)
+          .then(() => refreshVoting(sessionId))
+          .catch(() => undefined);
+      }, delay);
+      return [timerId];
+    });
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [votingBySession]);
 
   async function refreshCurrent(sessionId: string) {
     try {
       const entry = await getCurrentPerformance(sessionId);
       setCurrentBySession((prev) => ({ ...prev, [sessionId]: entry }));
+    } catch {
+      // silencioso — não trava o resto do dashboard
+    }
+  }
+
+  async function refreshVoting(sessionId: string) {
+    try {
+      const entry = await getVotingPerformance(sessionId);
+      setVotingBySession((prev) => ({ ...prev, [sessionId]: entry }));
+      if (entry?.status === 'RESULT') {
+        const results = await getResults(entry.id);
+        setResultsByPerformance((prev) => ({ ...prev, [entry.id]: results }));
+      }
     } catch {
       // silencioso — não trava o resto do dashboard
     }
@@ -201,6 +246,46 @@ export function HostPage() {
     }
   }
 
+  async function handleStartVoting(session: Session, entry: QueueEntry) {
+    setMarkingId(entry.id);
+    setErrorMessage('');
+    try {
+      await startVoting(entry.id);
+      await refreshCurrent(session.id);
+      await refreshVoting(session.id);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível iniciar a votação.');
+    } finally {
+      setMarkingId(null);
+    }
+  }
+
+  async function handleFinishVotingNow(session: Session, entry: QueueEntry) {
+    setVotingBusyId(entry.id);
+    setErrorMessage('');
+    try {
+      await finishVoting(entry.id);
+      await refreshVoting(session.id);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível encerrar a votação.');
+    } finally {
+      setVotingBusyId(null);
+    }
+  }
+
+  async function handleComplete(session: Session, entry: QueueEntry) {
+    setVotingBusyId(entry.id);
+    setErrorMessage('');
+    try {
+      await completePerformance(entry.id);
+      await refreshVoting(session.id);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível concluir.');
+    } finally {
+      setVotingBusyId(null);
+    }
+  }
+
   function joinUrl(code: string) {
     return `${window.location.origin}${import.meta.env.BASE_URL}join/${code}`;
   }
@@ -274,6 +359,8 @@ export function HostPage() {
 
         {sessions.map((session) => {
           const current = currentBySession[session.id];
+          const voting = votingBySession[session.id];
+          const results = voting ? resultsByPerformance[voting.id] : null;
           const isOpenOrLive = session.status === 'OPEN' || session.status === 'LIVE';
           return (
             <div key={session.id} className="rounded-card border border-stage-700 bg-stage-800 p-4">
@@ -322,6 +409,15 @@ export function HostPage() {
                         Começou a cantar
                       </Button>
                     )}
+                    {current.status === 'PERFORMING' && (
+                      <Button
+                        size="md"
+                        disabled={markingId === current.id}
+                        onClick={() => handleStartVoting(session, current)}
+                      >
+                        Iniciar votação
+                      </Button>
+                    )}
                     <Button
                       size="md"
                       variant="outline"
@@ -330,6 +426,45 @@ export function HostPage() {
                     >
                       Cancelar
                     </Button>
+                  </div>
+                </div>
+              )}
+
+              {isOpenOrLive && voting && (
+                <div className="mb-3 rounded-card border border-glow-500/60 bg-stage-700 p-3">
+                  <p className="text-xs uppercase tracking-[0.15em] text-glow-400">
+                    {voting.status === 'VOTING' ? '🗳️ Votando' : 'Resultado'}
+                  </p>
+                  <p className="font-medium text-ink">
+                    {voting.performerName} — {voting.song?.title}
+                  </p>
+                  {voting.status === 'RESULT' && results && (
+                    <p className="mt-1 text-sm text-muted">
+                      Nota da Plateia: <span className="text-ink">{results.audience_score}</span> ·
+                      {' '}
+                      {results.sing_along_percent}% cantariam junto · {results.vote_count} votos
+                    </p>
+                  )}
+                  <div className="mt-2 flex gap-2">
+                    {voting.status === 'VOTING' && (
+                      <Button
+                        size="md"
+                        variant="outline"
+                        disabled={votingBusyId === voting.id}
+                        onClick={() => handleFinishVotingNow(session, voting)}
+                      >
+                        Encerrar votação agora
+                      </Button>
+                    )}
+                    {voting.status === 'RESULT' && (
+                      <Button
+                        size="md"
+                        disabled={votingBusyId === voting.id}
+                        onClick={() => handleComplete(session, voting)}
+                      >
+                        Concluir
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}

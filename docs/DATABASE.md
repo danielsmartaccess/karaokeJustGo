@@ -110,6 +110,29 @@ tabela acima).
 - `performances` e `sessions` adicionadas à publication `supabase_realtime` — habilita
   `postgres_changes` no cliente (ver ARCHITECTURE.md).
 
+## Implementado (FASE 7)
+
+- **`performances`** ganha `voting_started_at` — carimbado pelo próprio trigger (nunca
+  pelo cliente: é a base do cálculo da janela de 60s, então não pode ser confiável se
+  vier do payload). Transições liberadas: `PERFORMING → VOTING → RESULT → COMPLETED`.
+- **`session_participants`** — proxy de "presente na sessão" (docs/SECURITY.md exige
+  "votante presente/online"). **Simplificação deliberada:** é "já completou o cadastro
+  nesta sessão", não presença efêmera via WebSocket — Presence real exigiria uma ponte
+  Realtime→Postgres (o trigger SQL não consegue ler estado de um canal Realtime, que só
+  existe na memória do servidor Realtime, não no banco). Documentado como limitação
+  conhecida, não descoberta tardia.
+- **`votes`** — `voice_score`/`performance_score`/`charisma_score`/`fun_score` (1-5,
+  `check` constraint) + `would_sing_along`. `unique(performance_id, voter_id)` impede
+  voto duplicado no banco (defesa em profundidade além do trigger). RLS: cada um só lê
+  o próprio voto — nunca expõe voto individual de outra pessoa (docs/PRODUCT.md).
+- **`validate_vote`** (trigger) — fonte de verdade de todas as regras de
+  docs/SECURITY.md: sem auto-voto, só com `status = VOTING`, dentro dos 60s
+  (`voting_started_at`), só quem está em `session_participants`.
+- **`performance_results`** (view, `security_invoker = false` — mesmo padrão de
+  `public_profiles`) — médias por categoria, Nota da Plateia, % "cantaria junto",
+  contagem de votos. Só existe porque agrega (nunca expõe uma linha de `votes`
+  individualmente) — revisado e aceito no mesmo alerta ERROR do advisor.
+
 ## Papéis
 
 `PARTICIPANT` · `HOST` · `ADMIN`. Autorização aplicada via RLS, nunca apenas no frontend.
