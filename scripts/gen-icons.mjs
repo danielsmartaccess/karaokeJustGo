@@ -1,79 +1,70 @@
 /**
- * Gera ícones PNG do PWA (cor sólida da marca) sem dependências externas.
+ * Gera os ícones do PWA a partir da marca real (glifo "Go" extraído do logo oficial
+ * — ver scripts/assets/go-mark-white.png). Fundo azul da marca (#01ADEF), glifo
+ * branco centralizado com margem generosa (~22%) para servir também como ícone
+ * maskable (vite.config.ts reaproveita icon-512.png com purpose: 'maskable').
  * Uso: node scripts/gen-icons.mjs
  */
-import { deflateSync } from 'node:zlib';
+import sharp from 'sharp';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = join(__dirname, '..', 'public');
+const GLYPH = join(__dirname, 'assets', 'go-mark-white.png');
 mkdirSync(OUT, { recursive: true });
 
-// Brand stage-900 background
-const [R, G, B] = [0x09, 0x16, 0x1e];
+const BRAND_BLUE = { r: 0x01, g: 0xad, b: 0xef, alpha: 1 };
+const SAFE_MARGIN = 0.22;
 
-const CRC_TABLE = (() => {
-  const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c >>> 0;
-  }
-  return t;
-})();
+async function makeIcon(size) {
+  const glyphSize = Math.round(size * (1 - SAFE_MARGIN * 2));
+  const glyph = await sharp(GLYPH).resize(glyphSize, glyphSize, { fit: 'inside' }).toBuffer();
+  const glyphMeta = await sharp(glyph).metadata();
 
-function crc32(buf) {
-  let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
+  const buffer = await sharp({
+    create: { width: size, height: size, channels: 4, background: BRAND_BLUE },
+  })
+    .composite([
+      {
+        input: glyph,
+        left: Math.round((size - glyphMeta.width) / 2),
+        top: Math.round((size - glyphMeta.height) / 2),
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  writeFileSync(join(OUT, `icon-${size}.png`), buffer);
+  console.log(`icon-${size}.png gerado`);
+  return buffer;
 }
 
-function chunk(type, data) {
-  const typeBuf = Buffer.from(type, 'ascii');
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length, 0);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])), 0);
-  return Buffer.concat([len, typeBuf, data, crc]);
-}
+async function makeFavicon() {
+  const png = await sharp({
+    create: { width: 128, height: 128, channels: 4, background: BRAND_BLUE },
+  })
+    .composite([
+      {
+        input: await sharp(GLYPH).resize(88, 88, { fit: 'inside' }).toBuffer(),
+        left: 20,
+        top: 24,
+      },
+    ])
+    .png()
+    .toBuffer();
 
-function makePng(size) {
-  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0);
-  ihdr.writeUInt32BE(size, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 2; // color type RGB
-  ihdr[10] = 0;
-  ihdr[11] = 0;
-  ihdr[12] = 0;
-
-  const rowBytes = size * 3;
-  const raw = Buffer.alloc((rowBytes + 1) * size);
-  for (let y = 0; y < size; y++) {
-    const off = y * (rowBytes + 1);
-    raw[off] = 0; // filter: none
-    for (let x = 0; x < size; x++) {
-      const p = off + 1 + x * 3;
-      raw[p] = R;
-      raw[p + 1] = G;
-      raw[p + 2] = B;
-    }
-  }
-  const idat = deflateSync(raw, { level: 9 });
-
-  return Buffer.concat([
-    sig,
-    chunk('IHDR', ihdr),
-    chunk('IDAT', idat),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
+  const b64 = png.toString('base64');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <image href="data:image/png;base64,${b64}" width="128" height="128"/>
+</svg>
+`;
+  writeFileSync(join(OUT, 'favicon.svg'), svg);
+  console.log('favicon.svg gerado');
 }
 
 for (const size of [192, 512]) {
-  writeFileSync(join(OUT, `icon-${size}.png`), makePng(size));
-  console.log(`icon-${size}.png gerado`);
+  await makeIcon(size);
 }
+await makeFavicon();

@@ -10,6 +10,7 @@ import {
   subscribeToPerformances,
   type QueueEntry,
 } from '@/data/performances';
+import goMark from '@/assets/go-mark-blue.png';
 
 /**
  * Telão (FASE 6): tela pública, só leitura, para o venue projetar. Mostra quem está
@@ -121,7 +122,8 @@ export function DisplayPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col items-center justify-center gap-10 px-8 py-16 text-center">
-      <div>
+      <div className="flex flex-col items-center gap-2">
+        <img src={goMark} alt="" className="h-8 w-auto" />
         <p className="text-sm font-medium uppercase tracking-[0.3em] text-brand-400">
           {venue?.name} · {session?.code}
         </p>

@@ -37,6 +37,7 @@ src/
 │   ├── performance/     # máquina de estados da apresentação
 │   ├── gamification/    # XP (fama e badges nas próximas fatias)
 │   └── session/         # máquina de estados da sessão (FASE 3)
+├── assets/      # imagens da marca (glifo "Go" extraído do logo oficial)
 ├── data/        # camada Supabase — identity.ts, sessions.ts (FASE 3)
 ├── ui/          # design system Just Go (tokens + componentes)
 ├── lib/         # utilitários (cn, cliente Supabase)
