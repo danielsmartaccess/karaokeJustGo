@@ -93,6 +93,23 @@ tabela acima).
   revisado e aceito, porque é exatamente essa a única forma de expor nome sem expor
   WhatsApp (ver docs/SECURITY.md).
 
+## Implementado (FASE 6)
+
+- Trigger `validate_performance_transition` estendida: agora libera
+  `QUEUED → CALLED → PERFORMING`, além de `CANCELLED` a partir de qualquer um dos três
+  (espelha `CANCELLABLE` em `src/domain/performance/state-machine.ts`). `VOTING` em diante
+  continua bloqueado (FASE 7).
+- Autorização embutida na própria trigger: chamar (`CALLED`) e marcar cantando
+  (`PERFORMING`) exige ser `venue_staff` do venue da sessão E a sessão estar
+  `OPEN`/`LIVE`; cancelar pode ser o próprio performer OU staff.
+- Índice único parcial `(session_id) where status in ('CALLED','PERFORMING')` — só uma
+  pessoa ativa no palco por sessão por vez.
+- Hardening: a policy de INSERT em `performances` não travava `status` explicitamente
+  (um participante mal-intencionado podia inserir já como `CALLED`) — corrigido para
+  exigir `status = 'QUEUED'` no `with check`.
+- `performances` e `sessions` adicionadas à publication `supabase_realtime` — habilita
+  `postgres_changes` no cliente (ver ARCHITECTURE.md).
+
 ## Papéis
 
 `PARTICIPANT` · `HOST` · `ADMIN`. Autorização aplicada via RLS, nunca apenas no frontend.

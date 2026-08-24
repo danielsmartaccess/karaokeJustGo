@@ -69,18 +69,34 @@ vivem no domínio como funções puras. Componentes React apenas as consomem.
 - **`lib/active-session.ts`** — sessão ativa do participante (id + code) persistida em
   `localStorage`, compartilhada entre `JoinPage`, `SongsPage` e `QueuePage`.
 
+## Dados implementados (FASE 6)
+
+- **`data/performances.ts`** ganhou `callNext`, `markPerforming` e
+  `subscribeToPerformances` (Realtime `postgres_changes`, filtrado por `session_id`).
+  Realtime chegou nesta fase como estava planejado (ver "Realtime" abaixo) — `HostPage`,
+  `QueuePage` e a nova `DisplayPage` (telão) assinam mudanças em `performances` e
+  atualizam a UI sem polling e sem o usuário recarregar a página (testado ao vivo).
+- Autorização de quem pode chamar/marcar cantando (só staff do venue, só com sessão
+  aberta) vive na trigger `validate_performance_transition` — a mesma função da FASE 5,
+  estendida — não em RLS pura, porque RLS não distingue "qual transição" está sendo
+  tentada, só "a linha é minha".
+
 ## Estados da sessão
 
 ```
 SCHEDULED → OPEN → LIVE → CLOSED
 ```
 
-## Realtime (FASE 6+)
+## Realtime
 
-- **Presence:** usuários online na sessão (base para elegibilidade de voto).
-- **Broadcast:** eventos da experiência — `QUEUE_UPDATED`, `PERFORMANCE_STARTED/FINISHED`,
-  `VOTING_STARTED/FINISHED`, `RESULT_AVAILABLE`, `RANKING_UPDATED`, `BADGE_EARNED`,
-  `WINNER_ANNOUNCED`. Sem polling agressivo.
+- **`postgres_changes`** (✅ FASE 6) — `HostPage`, `QueuePage` e `DisplayPage` assinam
+  mudanças em `performances`/`sessions` via `data/performances.ts#subscribeToPerformances`.
+  Simples e direto: reage a mudança de linha, sem precisar orquestrar eventos customizados.
+- **Presence** (FASE 7) — usuários online na sessão, base para elegibilidade de voto
+  (`isPresent` em `src/domain/voting/rules.ts`).
+- **Broadcast** (FASE 8+) — eventos customizados de nível "experiência" —
+  `RESULT_AVAILABLE`, `RANKING_UPDATED`, `BADGE_EARNED`, `WINNER_ANNOUNCED` — quando fizer
+  sentido além do que `postgres_changes` já cobre. Sem polling agressivo em nenhum caso.
 
 ## Multi-tenancy
 

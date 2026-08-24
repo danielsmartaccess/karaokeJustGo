@@ -5,6 +5,7 @@ import { JoinPage } from './pages/JoinPage';
 import { HostPage } from './pages/HostPage';
 import { SongsPage } from './pages/SongsPage';
 import { QueuePage } from './pages/QueuePage';
+import { DisplayPage } from './pages/DisplayPage';
 
 /**
  * Roteamento das três experiências (seções 32–33).
@@ -29,8 +30,8 @@ export function AppRouter() {
         <Route path="/host" element={<HostPage />} />
 
         {/* TELÃO (público) */}
-        <Route path="/display" element={<PlaceholderPage scope="Telão" title="Telão" phase="FASE 6 — Apresentação" />} />
-        <Route path="/display/session/:sessionId" element={<PlaceholderPage scope="Telão" title="Telão da Sessão" phase="FASE 6 — Apresentação" />} />
+        <Route path="/display" element={<DisplayPage />} />
+        <Route path="/display/session/:code" element={<DisplayPage />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

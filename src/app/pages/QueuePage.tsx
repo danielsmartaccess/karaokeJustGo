@@ -1,30 +1,40 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/ui/Button';
-import { getQueue, leaveQueue, type QueueEntry } from '@/data/performances';
+import {
+  getCurrentPerformance,
+  getQueue,
+  leaveQueue,
+  subscribeToPerformances,
+  type QueueEntry,
+} from '@/data/performances';
 import { readActiveSession } from '@/lib/active-session';
 
 /**
- * Fila da sessão (FASE 5): quem já entrou, em ordem de chegada. Ser chamado/cantar é
- * FASE 6 — aqui só existe entrar (via /songs) e sair da fila.
+ * Fila da sessão (FASE 5) + quem está chamado/cantando agora (FASE 6), ao vivo via
+ * Realtime. Votar é FASE 7.
  */
 export function QueuePage() {
   const [activeSession] = useState(readActiveSession);
+  const [current, setCurrent] = useState<QueueEntry | null>(null);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [leavingId, setLeavingId] = useState<string | null>(null);
 
-  const loadQueue = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!activeSession) {
       setLoading(false);
       return;
     }
-    setLoading(true);
     setErrorMessage('');
-    setQueue([]);
     try {
-      setQueue(await getQueue(activeSession.id));
+      const [currentPerformance, entries] = await Promise.all([
+        getCurrentPerformance(activeSession.id),
+        getQueue(activeSession.id),
+      ]);
+      setCurrent(currentPerformance);
+      setQueue(entries);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao carregar a fila.');
     } finally {
@@ -33,15 +43,17 @@ export function QueuePage() {
   }, [activeSession]);
 
   useEffect(() => {
-    void loadQueue();
-  }, [loadQueue]);
+    void load();
+    if (!activeSession) return;
+    return subscribeToPerformances(activeSession.id, () => void load());
+  }, [activeSession, load]);
 
   async function handleLeave(entry: QueueEntry) {
     setLeavingId(entry.id);
     setErrorMessage('');
     try {
       await leaveQueue(entry.id, entry.status);
-      await loadQueue();
+      await load();
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Não foi possível sair da fila.');
     } finally {
@@ -82,7 +94,32 @@ export function QueuePage() {
 
       {loading && <p className="text-center text-sm text-muted">Carregando…</p>}
 
-      {!loading && queue.length === 0 && (
+      {current?.isMine && (
+        <div className="flex flex-col items-center gap-3 rounded-card border border-brand-500 bg-stage-800 px-5 py-6 text-center">
+          <p className="text-2xl">🎤</p>
+          <p className="text-lg font-bold text-brand-400">
+            {current.status === 'PERFORMING' ? 'Você está cantando agora!' : 'Você foi chamado!'}
+          </p>
+          <p className="text-muted">{current.song?.title}</p>
+          <Button
+            variant="outline"
+            size="md"
+            disabled={leavingId === current.id}
+            onClick={() => handleLeave(current)}
+          >
+            {leavingId === current.id ? '…' : 'Desistir'}
+          </Button>
+        </div>
+      )}
+
+      {current && !current.isMine && (
+        <p className="text-center text-sm text-muted">
+          {current.status === 'PERFORMING' ? '🎤 Cantando agora:' : 'Chamado:'}{' '}
+          <span className="text-ink">{current.performerName}</span> — {current.song?.title}
+        </p>
+      )}
+
+      {!loading && queue.length === 0 && !current && (
         <p className="text-center text-sm text-muted">
           Ninguém na fila ainda —{' '}
           <Link to="/songs" className="text-brand-400 hover:text-brand-300">
