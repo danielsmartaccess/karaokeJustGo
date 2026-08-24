@@ -1,12 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LandingPage } from './pages/LandingPage';
-import { PlaceholderPage } from './pages/PlaceholderPage';
 import { JoinPage } from './pages/JoinPage';
 import { HostPage } from './pages/HostPage';
 import { SongsPage } from './pages/SongsPage';
 import { QueuePage } from './pages/QueuePage';
 import { DisplayPage } from './pages/DisplayPage';
 import { VotePage } from './pages/VotePage';
+import { ProfilePage } from './pages/ProfilePage';
 
 /**
  * Roteamento das três experiências (seções 32–33).
@@ -25,7 +25,7 @@ export function AppRouter() {
         <Route path="/songs" element={<SongsPage />} />
         <Route path="/queue" element={<QueuePage />} />
         <Route path="/vote" element={<VotePage />} />
-        <Route path="/profile" element={<PlaceholderPage scope="Participante" title="Perfil" phase="FASE 8 — Gamificação" />} />
+        <Route path="/profile" element={<ProfilePage />} />
 
         {/* HOST */}
         <Route path="/host" element={<HostPage />} />

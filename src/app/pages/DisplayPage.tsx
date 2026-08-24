@@ -12,6 +12,11 @@ import {
   type QueueEntry,
 } from '@/data/performances';
 import { getResults, type PerformanceResult } from '@/data/votes';
+import {
+  getSessionLeaderboard,
+  subscribeToPointsTransactions,
+  type SessionReputation,
+} from '@/data/gamification';
 import { VOTING_WINDOW_SECONDS } from '@/domain/voting/rules';
 import goMark from '@/assets/go-mark-blue.png';
 
@@ -35,6 +40,7 @@ export function DisplayPage() {
   const [voting, setVoting] = useState<QueueEntry | null>(null);
   const [results, setResults] = useState<PerformanceResult | null>(null);
   const [upNext, setUpNext] = useState<QueueEntry[]>([]);
+  const [ranking, setRanking] = useState<SessionReputation[]>([]);
   const [loading, setLoading] = useState(Boolean(codeParam));
   const [errorMessage, setErrorMessage] = useState('');
   const [, setTick] = useState(0);
@@ -58,7 +64,13 @@ export function DisplayPage() {
         setSession(found);
         setVenue(await getVenueById(found.venue_id));
         await refresh(found.id);
-        unsubscribe = subscribeToPerformances(found.id, () => void refresh(found.id));
+        await refreshRanking(found.id);
+        const unsubPerformances = subscribeToPerformances(found.id, () => void refresh(found.id));
+        const unsubPoints = subscribeToPointsTransactions(found.id, () => void refreshRanking(found.id));
+        unsubscribe = () => {
+          unsubPerformances();
+          unsubPoints();
+        };
       } catch (err) {
         if (!cancelled) {
           setErrorMessage(err instanceof Error ? err.message : 'Erro ao carregar o telão.');
@@ -84,6 +96,11 @@ export function DisplayPage() {
       } else {
         setResults(null);
       }
+    }
+
+    async function refreshRanking(sessionId: string) {
+      const top = await getSessionLeaderboard(sessionId, 5);
+      if (!cancelled) setRanking(top);
     }
 
     void load();
@@ -213,6 +230,24 @@ export function DisplayPage() {
                 <span className="text-muted">{index + 1}</span>
                 <span className="flex-1 text-ink">{entry.song?.title}</span>
                 <span className="text-muted">{entry.performerName}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {ranking.length > 0 && (
+        <div className="w-full">
+          <p className="mb-3 text-sm uppercase tracking-[0.2em] text-muted">🏆 Ranking da noite</p>
+          <ol className="flex flex-col gap-2">
+            {ranking.map((entry, index) => (
+              <li
+                key={entry.profile_id}
+                className="flex items-center justify-between gap-3 rounded-card border border-stage-700 bg-stage-800 px-5 py-3 text-left"
+              >
+                <span className="text-muted">{index + 1}</span>
+                <span className="flex-1 text-ink">{entry.display_name}</span>
+                <span className="text-brand-400">{entry.session_xp} XP</span>
               </li>
             ))}
           </ol>

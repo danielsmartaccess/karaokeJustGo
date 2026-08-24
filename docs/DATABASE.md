@@ -133,6 +133,28 @@ tabela acima).
   contagem de votos. Só existe porque agrega (nunca expõe uma linha de `votes`
   individualmente) — revisado e aceito no mesmo alerta ERROR do advisor.
 
+## Implementado (FASE 8)
+
+- **`points_transactions`** — ledger fonte de verdade (XP total = `SUM(points)`). Público
+  para leitura (ao contrário de `votes`: XP é conquista social, feita pra ser celebrada —
+  docs/PRODUCT.md). **Sem policy de insert/update/delete para roles de cliente** — só as
+  4 triggers `SECURITY DEFINER` abaixo escrevem, cada uma reagindo a UMA ação já validada
+  em outra tabela: `session_participants` (JOIN_SESSION + RETURN_VENUE se já visitou o
+  venue antes), `votes` (VOTE + bônus VOTE_FIVE_PERFORMANCES no 5º voto da sessão),
+  `performances` completada (SING), `user_favorite_songs` (FAVORITE_SONG). Valores fixos
+  de `src/domain/gamification/xp.ts` — config de XP por venue fica para FASE 10 se for
+  necessário, não construída especulativamente. **`DUET` não tem trigger** — não existe
+  apresentação com 2 cantores no modelo atual.
+- **`badges`** (catálogo, 4 badges seed) + **`user_badges`** (`unique(profile_id,
+  badge_id)` — uma vez só). Concedidos pelas mesmas 4 triggers.
+- **Sem `leaderboards`/`leaderboard_entries`**: ranking é view agregada
+  (`session_reputation` por sessão, `user_reputation` geral/"hall da fama") sobre
+  `points_transactions`, não tabela materializada — sem processo de snapshot para
+  manter em dia (docs/DATABASE.md: "não cálculo no frontend").
+- Testado ao vivo: matemática de XP conferida em 3 cenários reais (entrar + favoritar +
+  cantar = 125 XP; votar = 30 XP; voltar numa 2ª sessão do mesmo venue = +120 XP e badge
+  "Fiel à Casa", sem duplicar "Primeiro Passo").
+
 ## Papéis
 
 `PARTICIPANT` · `HOST` · `ADMIN`. Autorização aplicada via RLS, nunca apenas no frontend.

@@ -65,6 +65,13 @@ conhecida, não como buraco descoberto depois.
 XP/fama/badges são atribuídos por lógica de servidor (RPC/trigger/Edge Function), nunca por
 gravação direta do cliente — proteção contra manipulação de XP.
 
+**Implementado na FASE 8:** `points_transactions` não tem policy de insert/update/delete
+para nenhuma role de cliente — só 4 triggers `SECURITY DEFINER` conseguem escrever, e
+cada uma decide o evento e a pontuação sozinha (nunca aceita valores vindos do payload
+do cliente). Mesmo padrão de hardening de `handle_new_user` (FASE 2): as funções de
+trigger têm `EXECUTE` revogado de `anon`/`authenticated` — só rodam via trigger, nunca
+chamáveis direto via `/rest/v1/rpc/award_xp_on_*`.
+
 ## Boas práticas gerais
 
 - Dados pessoais nunca em query string/URL.

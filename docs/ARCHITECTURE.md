@@ -84,6 +84,20 @@ vivem no domínio como funções puras. Componentes React apenas as consomem.
   que chama `finishVoting` quando o tempo acaba — funciona enquanto a aba do host estiver
   aberta (é quem está rodando a sessão). Sem cron/Edge Function.
 
+## Dados implementados (FASE 8)
+
+- **`data/gamification.ts`** — só leitura: `getMyReputation`, `getMyBadges`,
+  `getSessionLeaderboard`. XP nunca é escrito pelo cliente (docs/SECURITY.md) — quem
+  grava são 4 triggers `SECURITY DEFINER` no banco, cada uma reagindo a UMA ação já
+  validada em outra tabela (entrar na sessão, apresentação completada, voto, favoritar).
+  Nenhuma tela de app "dá" XP diretamente — só reflete o que o servidor já decidiu.
+- Ranking é view agregada (`session_reputation`, `user_reputation`), não tabela
+  materializada — sem processo de snapshot para manter em dia.
+- `ProfilePage` (`/profile`) e a seção "Ranking da noite" do telão assinam
+  `points_transactions` via Realtime — testado ao vivo: XP e badges aparecem
+  corretamente sem reload, matemática conferida em 3 cenários (entrar+favoritar+cantar,
+  votar, e voltar numa segunda sessão do mesmo venue).
+
 ## Dados implementados (FASE 6)
 
 - **`data/performances.ts`** ganhou `callNext`, `markPerforming` e

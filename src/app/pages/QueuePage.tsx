@@ -194,6 +194,10 @@ export function QueuePage() {
         ← Buscar outra música
       </Link>
 
+      <Link to="/profile" className="text-center text-sm text-brand-400 hover:text-brand-300">
+        🏆 Meu perfil
+      </Link>
+
       <Link to="/" className="text-center text-sm text-muted hover:text-ink">
         ← Voltar
       </Link>

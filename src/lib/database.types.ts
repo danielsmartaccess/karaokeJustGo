@@ -9,6 +9,33 @@ export type Database = {
   };
   public: {
     Tables: {
+      badges: {
+        Row: {
+          code: string;
+          created_at: string;
+          description: string;
+          icon: string;
+          id: string;
+          name: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          description: string;
+          icon: string;
+          id?: string;
+          name: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          description?: string;
+          icon?: string;
+          id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
       performances: {
         Row: {
           created_at: string;
@@ -53,6 +80,48 @@ export type Database = {
             columns: ['song_id'];
             isOneToOne: false;
             referencedRelation: 'songs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      points_transactions: {
+        Row: {
+          created_at: string;
+          event: Database['public']['Enums']['xp_event'];
+          id: string;
+          points: number;
+          profile_id: string;
+          session_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          event: Database['public']['Enums']['xp_event'];
+          id?: string;
+          points: number;
+          profile_id: string;
+          session_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          event?: Database['public']['Enums']['xp_event'];
+          id?: string;
+          points?: number;
+          profile_id?: string;
+          session_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'points_transactions_profile_id_fkey';
+            columns: ['profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'points_transactions_session_id_fkey';
+            columns: ['session_id'];
+            isOneToOne: false;
+            referencedRelation: 'sessions';
             referencedColumns: ['id'];
           },
         ];
@@ -228,6 +297,49 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      user_badges: {
+        Row: {
+          badge_id: string;
+          earned_at: string;
+          profile_id: string;
+          session_id: string | null;
+        };
+        Insert: {
+          badge_id: string;
+          earned_at?: string;
+          profile_id: string;
+          session_id?: string | null;
+        };
+        Update: {
+          badge_id?: string;
+          earned_at?: string;
+          profile_id?: string;
+          session_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'user_badges_badge_id_fkey';
+            columns: ['badge_id'];
+            isOneToOne: false;
+            referencedRelation: 'badges';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_badges_profile_id_fkey';
+            columns: ['profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_badges_session_id_fkey';
+            columns: ['session_id'];
+            isOneToOne: false;
+            referencedRelation: 'sessions';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       user_favorite_songs: {
         Row: {
@@ -416,6 +528,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      session_reputation: {
+        Row: {
+          display_name: string | null;
+          profile_id: string | null;
+          session_id: string | null;
+          session_xp: number | null;
+        };
+        Relationships: [];
+      };
+      user_reputation: {
+        Row: {
+          display_name: string | null;
+          event_count: number | null;
+          profile_id: string | null;
+          total_xp: number | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       generate_session_code: { Args: never; Returns: string };
@@ -431,6 +561,14 @@ export type Database = {
         | 'CANCELLED';
       session_status: 'SCHEDULED' | 'OPEN' | 'LIVE' | 'CLOSED';
       staff_role: 'HOST' | 'ADMIN';
+      xp_event:
+        | 'JOIN_SESSION'
+        | 'SING'
+        | 'VOTE'
+        | 'VOTE_FIVE_PERFORMANCES'
+        | 'FAVORITE_SONG'
+        | 'RETURN_VENUE'
+        | 'DUET';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -549,6 +687,15 @@ export const Constants = {
       ],
       session_status: ['SCHEDULED', 'OPEN', 'LIVE', 'CLOSED'],
       staff_role: ['HOST', 'ADMIN'],
+      xp_event: [
+        'JOIN_SESSION',
+        'SING',
+        'VOTE',
+        'VOTE_FIVE_PERFORMANCES',
+        'FAVORITE_SONG',
+        'RETURN_VENUE',
+        'DUET',
+      ],
     },
   },
 } as const;
