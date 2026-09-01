@@ -21,7 +21,7 @@ Entidades esperadas (nomenclatura a revisar antes de implementar):
 | Tenancy       | `tenants`, `venues`                                                 |
 | Identidade    | `profiles` (liga a `auth.users`)                                    |
 | Sessão        | `sessions`                                                          |
-| Catálogo      | `songs`, `user_favorite_songs`                                      |
+| Catálogo      | ~~`songs`, `user_favorite_songs`~~ — removidos na FASE 10           |
 | Fila / palco  | `queue_entries`, `performances`                                     |
 | Votação       | `vote_categories`, `votes`, `performance_results`                  |
 | Gamificação   | `points_transactions`, `user_reputation`, `badges`, `user_badges` |
@@ -154,6 +154,55 @@ tabela acima).
 - Testado ao vivo: matemática de XP conferida em 3 cenários reais (entrar + favoritar +
   cantar = 125 XP; votar = 30 XP; voltar numa 2ª sessão do mesmo venue = +120 XP e badge
   "Fiel à Casa", sem duplicar "Primeiro Passo").
+
+## Implementado (FASE 9)
+
+- **`awards`** — `unique(session_id, code)`, um único código no MVP:
+  `PERFORMANCE_OF_THE_NIGHT` (docs/PRODUCT.md/roadmap não menciona categorias extras —
+  não inventadas aqui). Sem policy de insert/update/delete para clientes — só a
+  function `announce_performance_of_the_night(p_session_id)` escreve.
+- A function calcula o vencedor sozinha (maior `audience_score` entre `performances`
+  `COMPLETED` da sessão, empate por `vote_count` depois `created_at`) — o cliente só
+  dispara, nunca escolhe (mesmo princípio de XP: servidor decide o valor). Checa
+  autorização (só `venue_staff`) e pré-condição (sessão precisa estar `CLOSED`) por
+  dentro da própria function, porque RLS não distingue "qual RPC está sendo chamada".
+  Concede também o badge `performance-da-noite` ao vencedor (sistema de badges já
+  existia da FASE 8) — sem XP bônus, XP é um conjunto fechado de eventos do domínio
+  (`src/domain/gamification/xp.ts`), não estendido aqui por especulação.
+- **Bug corrigido nesta fase:** as policies de `sessions` e `performances`
+  ("publicly readable") só cobriam `OPEN`/`LIVE` — testando ao vivo, o telão
+  (visitante anônimo) parava de enxergar a sessão assim que o host encerrava,
+  exatamente no momento do reveal da Performance da Noite. Estendido para incluir
+  `CLOSED` como público em ambas.
+
+## Implementado (FASE 10)
+
+Migration `20260901120000_youtube_media.sql`. O catálogo curado da FASE 4 (38 músicas
+seed) não escalava: qualquer pedido fora do seed travava a fila. Substituído por
+**entrada de texto livre** + **vídeo do YouTube resolvido pelo host** na hora de chamar.
+
+- **`songs` e `user_favorite_songs` removidas** (`drop … cascade`). Cai junto o índice
+  `pg_trgm`, o trigger `user_favorite_songs_award_xp` e a função `award_xp_on_favorite()`
+  (removida explícita). O valor `FAVORITE_SONG` continua no enum `xp_event` (Postgres não
+  remove valor de enum sem recriar o tipo) — legado, sem trigger que o gere.
+- **`performances`** perde `song_id` (era FK `not null → songs`, o que prendia tudo ao
+  catálogo) e ganha:
+  - `song_query text not null` — o que a pessoa digitou que quer cantar. Sempre visível
+    (fila, telão, votação, prêmio), inclusive antes de existir vídeo.
+  - `youtube_video_id text` / `youtube_url text` — preenchidos pelo host ao marcar
+    "começou a cantar" (ou depois, ainda em `CALLED`/`PERFORMING`). **Nenhuma policy
+    nova:** a policy de UPDATE "performer or venue staff" já cobre staff, e
+    `validate_performance_transition()` faz `return new` quando o status não muda, então
+    setar só as colunas de vídeo passa.
+- **`sessions`** ganha `dj_youtube_video_id text` / `dj_started_at timestamptz` — "modo
+  DJ": vídeo que o telão toca **só quando ninguém está cantando** (o telão sempre
+  prioriza a apresentação atual). Escrita restrita a `venue_staff` pela policy de UPDATE
+  já existente. `sessions` já estava na publication `supabase_realtime` (FASE 6) — o
+  telão recebe a troca de vídeo ao vivo.
+- Sem YouTube Data API: o host busca `"<nome> karaokê"` no YouTube por fora e cola o
+  link (`src/lib/youtube.ts` só extrai o id e monta as URLs). Sem cota, sem custo, e o
+  host confere o vídeo antes de projetar. Spotify entra só como deep-link no frontend
+  (abre no app do host), sem schema.
 
 ## Papéis
 

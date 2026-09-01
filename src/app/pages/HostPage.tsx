@@ -1,14 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/ui/Button';
+import { Input } from '@/ui/Input';
 import {
   createSession,
   listVenueSessions,
   openSession,
   goLive,
   closeSession,
+  setDjVideo,
   type Session,
 } from '@/data/sessions';
+import {
+  parseYouTubeId,
+  youtubeWatchUrl,
+  youtubeKaraokeSearchUrl,
+  youtubeSearchUrl,
+  spotifySearchUrl,
+} from '@/lib/youtube';
 import { ensureAnonymousSession, getDefaultVenue, getMyVenueStaffRole } from '@/data/identity';
 import { canTransition, type SessionState } from '@/domain/session/state-machine';
 import {
@@ -20,11 +29,13 @@ import {
   getVotingPerformance,
   leaveQueue,
   markPerforming,
+  setPerformanceVideo,
   startVoting,
   subscribeToPerformances,
   type QueueEntry,
 } from '@/data/performances';
 import { getResults, type PerformanceResult } from '@/data/votes';
+import { announcePerformanceOfTheNight, getPerformanceOfTheNight, type AwardWithDetails } from '@/data/awards';
 import { VOTING_WINDOW_SECONDS } from '@/domain/voting/rules';
 import type { Tables } from '@/lib/database.types';
 
@@ -64,9 +75,16 @@ export function HostPage() {
   const [callingSessionId, setCallingSessionId] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [votingBusyId, setVotingBusyId] = useState<string | null>(null);
+  const [awardBySession, setAwardBySession] = useState<Record<string, AwardWithDetails | null>>({});
+  const [announcingSessionId, setAnnouncingSessionId] = useState<string | null>(null);
+  // FASE 10: link do YouTube que o host cola para o cantor chamado / para o modo DJ.
+  const [videoInputBySession, setVideoInputBySession] = useState<Record<string, string>>({});
+  const [djInputBySession, setDjInputBySession] = useState<Record<string, string>>({});
+  const [djBusySessionId, setDjBusySessionId] = useState<string | null>(null);
 
   useEffect(() => {
     void bootstrap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openOrLiveIds = useMemo(
@@ -140,11 +158,26 @@ export function HostPage() {
       setVenue(v);
       const r = await getMyVenueStaffRole(v.id);
       setRole(r);
-      if (r) setSessions(await listVenueSessions(v.id));
+      if (r) {
+        const list = await listVenueSessions(v.id);
+        setSessions(list);
+        for (const s of list) {
+          if (s.status === 'CLOSED') void refreshAward(s.id);
+        }
+      }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao carregar o painel do host.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function refreshAward(sessionId: string) {
+    try {
+      const award = await getPerformanceOfTheNight(sessionId);
+      setAwardBySession((prev) => ({ ...prev, [sessionId]: award }));
+    } catch {
+      // silencioso — não trava o resto do dashboard
     }
   }
 
@@ -168,10 +201,26 @@ export function HostPage() {
     try {
       const updated = await action(session);
       setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      if (updated.status === 'CLOSED') void refreshAward(updated.id);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Não foi possível atualizar a sessão.');
     } finally {
       setBusySessionId(null);
+    }
+  }
+
+  async function handleAnnounceAward(session: Session) {
+    setAnnouncingSessionId(session.id);
+    setErrorMessage('');
+    try {
+      await announcePerformanceOfTheNight(session.id);
+      await refreshAward(session.id);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Não foi possível anunciar a Performance da Noite.',
+      );
+    } finally {
+      setAnnouncingSessionId(null);
     }
   }
 
@@ -221,15 +270,77 @@ export function HostPage() {
   }
 
   async function handleMarkPerforming(session: Session, entry: QueueEntry) {
+    const raw = (videoInputBySession[session.id] ?? '').trim();
+    let video: { youtubeVideoId: string | null; youtubeUrl: string | null } | undefined;
+    if (raw) {
+      const id = parseYouTubeId(raw);
+      if (!id) {
+        setErrorMessage('Link do YouTube não reconhecido — cole a URL do vídeo (ou o id).');
+        return;
+      }
+      video = { youtubeVideoId: id, youtubeUrl: youtubeWatchUrl(id) };
+    }
     setMarkingId(entry.id);
     setErrorMessage('');
     try {
-      await markPerforming(entry.id);
+      await markPerforming(entry.id, video);
+      setVideoInputBySession((prev) => ({ ...prev, [session.id]: '' }));
       await refreshCurrent(session.id);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Não foi possível marcar como cantando.');
     } finally {
       setMarkingId(null);
+    }
+  }
+
+  async function handleSetPerformanceVideo(session: Session, entry: QueueEntry) {
+    const id = parseYouTubeId(videoInputBySession[session.id] ?? '');
+    if (!id) {
+      setErrorMessage('Link do YouTube não reconhecido — cole a URL do vídeo (ou o id).');
+      return;
+    }
+    setMarkingId(entry.id);
+    setErrorMessage('');
+    try {
+      await setPerformanceVideo(entry.id, { youtubeVideoId: id, youtubeUrl: youtubeWatchUrl(id) });
+      setVideoInputBySession((prev) => ({ ...prev, [session.id]: '' }));
+      await refreshCurrent(session.id);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível trocar o vídeo.');
+    } finally {
+      setMarkingId(null);
+    }
+  }
+
+  async function handleSetDjVideo(session: Session) {
+    const id = parseYouTubeId(djInputBySession[session.id] ?? '');
+    if (!id) {
+      setErrorMessage('Cole um link do YouTube para tocar no telão.');
+      return;
+    }
+    setDjBusySessionId(session.id);
+    setErrorMessage('');
+    try {
+      const updated = await setDjVideo(session.id, id);
+      setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setDjInputBySession((prev) => ({ ...prev, [session.id]: '' }));
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível tocar no telão.');
+    } finally {
+      setDjBusySessionId(null);
+    }
+  }
+
+  async function handleStopDj(session: Session) {
+    setDjBusySessionId(session.id);
+    setErrorMessage('');
+    try {
+      const updated = await setDjVideo(session.id, null);
+      setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível parar.');
+    } finally {
+      setDjBusySessionId(null);
     }
   }
 
@@ -397,9 +508,34 @@ export function HostPage() {
                     {current.status === 'PERFORMING' ? '🎤 Cantando agora' : 'Chamado'}
                   </p>
                   <p className="font-medium text-ink">
-                    {current.performerName} — {current.song?.title}
+                    {current.performerName} — {current.songQuery}
                   </p>
-                  <div className="mt-2 flex gap-2">
+
+                  <div className="mt-2 flex flex-col gap-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted">
+                        {current.youtubeVideoId ? '🎬 Vídeo no telão' : 'Vídeo do YouTube (opcional)'}
+                      </span>
+                      <a
+                        href={youtubeKaraokeSearchUrl(current.songQuery)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-brand-400 hover:text-brand-300"
+                      >
+                        buscar "{current.songQuery} karaokê" ↗
+                      </a>
+                    </div>
+                    <Input
+                      value={videoInputBySession[session.id] ?? ''}
+                      onChange={(e) =>
+                        setVideoInputBySession((prev) => ({ ...prev, [session.id]: e.target.value }))
+                      }
+                      placeholder="Cole aqui o link do vídeo de karaokê"
+                      className="text-sm"
+                    />
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {current.status === 'CALLED' && (
                       <Button
                         size="md"
@@ -410,13 +546,25 @@ export function HostPage() {
                       </Button>
                     )}
                     {current.status === 'PERFORMING' && (
-                      <Button
-                        size="md"
-                        disabled={markingId === current.id}
-                        onClick={() => handleStartVoting(session, current)}
-                      >
-                        Iniciar votação
-                      </Button>
+                      <>
+                        <Button
+                          size="md"
+                          disabled={markingId === current.id}
+                          onClick={() => handleStartVoting(session, current)}
+                        >
+                          Iniciar votação
+                        </Button>
+                        {(videoInputBySession[session.id] ?? '').trim() && (
+                          <Button
+                            size="md"
+                            variant="outline"
+                            disabled={markingId === current.id}
+                            onClick={() => handleSetPerformanceVideo(session, current)}
+                          >
+                            Trocar vídeo
+                          </Button>
+                        )}
+                      </>
                     )}
                     <Button
                       size="md"
@@ -430,13 +578,95 @@ export function HostPage() {
                 </div>
               )}
 
+              {isOpenOrLive && (
+                <div className="mb-3 rounded-card border border-stage-700 bg-stage-700/40 p-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="uppercase tracking-[0.15em] text-muted">🎧 Tocar agora (DJ)</span>
+                    {session.dj_youtube_video_id && (
+                      <span className="text-brand-400">no ar</span>
+                    )}
+                  </div>
+                  <Input
+                    value={djInputBySession[session.id] ?? ''}
+                    onChange={(e) =>
+                      setDjInputBySession((prev) => ({ ...prev, [session.id]: e.target.value }))
+                    }
+                    placeholder="Link do YouTube, ou termo de busca"
+                    className="mt-2 text-sm"
+                  />
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Button
+                      size="md"
+                      disabled={djBusySessionId === session.id}
+                      onClick={() => handleSetDjVideo(session)}
+                    >
+                      Tocar no telão
+                    </Button>
+                    {session.dj_youtube_video_id && (
+                      <Button
+                        size="md"
+                        variant="outline"
+                        disabled={djBusySessionId === session.id}
+                        onClick={() => handleStopDj(session)}
+                      >
+                        Parar
+                      </Button>
+                    )}
+                    <a
+                      href={youtubeSearchUrl(djInputBySession[session.id] ?? '')}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-brand-400 hover:text-brand-300"
+                    >
+                      YouTube ↗
+                    </a>
+                    <a
+                      href={spotifySearchUrl(djInputBySession[session.id] ?? '')}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-brand-400 hover:text-brand-300"
+                    >
+                      Spotify ↗
+                    </a>
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    O telão só toca isto quando ninguém está cantando. O Spotify abre no seu app —
+                    conecte ao som da casa.
+                  </p>
+                </div>
+              )}
+
+              {session.status === 'CLOSED' && (
+                <div className="mb-3 rounded-card border border-spotlight-500/60 bg-stage-700 p-3">
+                  {awardBySession[session.id] ? (
+                    <>
+                      <p className="text-xs uppercase tracking-[0.15em] text-spotlight-400">
+                        🏆 Performance da Noite
+                      </p>
+                      <p className="font-medium text-ink">
+                        {awardBySession[session.id]?.performerName} —{' '}
+                        {awardBySession[session.id]?.songTitle}
+                      </p>
+                    </>
+                  ) : (
+                    <Button
+                      size="md"
+                      disabled={announcingSessionId === session.id}
+                      onClick={() => handleAnnounceAward(session)}
+                    >
+                      {announcingSessionId === session.id ? '…' : '🏆 Anunciar Performance da Noite'}
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {isOpenOrLive && voting && (
                 <div className="mb-3 rounded-card border border-glow-500/60 bg-stage-700 p-3">
                   <p className="text-xs uppercase tracking-[0.15em] text-glow-400">
                     {voting.status === 'VOTING' ? '🗳️ Votando' : 'Resultado'}
                   </p>
                   <p className="font-medium text-ink">
-                    {voting.performerName} — {voting.song?.title}
+                    {voting.performerName} — {voting.songQuery}
                   </p>
                   {voting.status === 'RESULT' && results && (
                     <p className="mt-1 text-sm text-muted">
@@ -524,7 +754,7 @@ export function HostPage() {
                     <div key={entry.id} className="flex items-center justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate">
                         <span className="text-muted">{index + 1}.</span>{' '}
-                        <span className="text-ink">{entry.song?.title}</span>{' '}
+                        <span className="text-ink">{entry.songQuery}</span>{' '}
                         <span className="text-muted">— {entry.performerName}</span>
                       </span>
                       <Button

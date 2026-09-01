@@ -145,7 +145,7 @@ export function VotePage() {
       {performance && !performance.isMine && performance.status === 'VOTING' && !alreadyVoted && (
         <div className="flex w-full flex-col gap-4">
           <p className="text-ink">
-            {performance.performerName} — {performance.song?.title}
+            {performance.performerName} — {performance.songQuery}
           </p>
           <p className="text-sm text-brand-400">{remaining}s restantes</p>
 
@@ -202,7 +202,7 @@ export function VotePage() {
       {performance && performance.status === 'RESULT' && results && (
         <div className="flex w-full flex-col gap-3 rounded-card border border-brand-500 bg-stage-800 p-5">
           <p className="text-ink">
-            {performance.performerName} — {performance.song?.title}
+            {performance.performerName} — {performance.songQuery}
           </p>
           <p className="text-5xl font-bold text-brand-400">{results.audience_score}</p>
           <p className="text-xs uppercase tracking-[0.2em] text-muted">Nota da Plateia</p>

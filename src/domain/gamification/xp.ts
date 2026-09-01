@@ -10,19 +10,21 @@ export type XpEvent =
   | 'SING'
   | 'VOTE'
   | 'VOTE_FIVE_PERFORMANCES'
-  | 'FAVORITE_SONG'
   | 'RETURN_VENUE'
   | 'DUET';
 
 export type XpTable = Record<XpEvent, number>;
 
-/** Defaults sugeridos pela seção 25. Sobrescrevíveis por configuração de venue. */
+/**
+ * Defaults sugeridos pela seção 25. Sobrescrevíveis por configuração de venue.
+ * `FAVORITE_SONG` saiu na FASE 10 junto com o catálogo curado (não há mais o que
+ * favoritar) — o valor legado segue no enum `xp_event` do banco, sem trigger.
+ */
 export const DEFAULT_XP_TABLE: XpTable = {
   JOIN_SESSION: 20,
   SING: 100,
   VOTE: 10,
   VOTE_FIVE_PERFORMANCES: 50,
-  FAVORITE_SONG: 5,
   RETURN_VENUE: 100,
   DUET: 75,
 };

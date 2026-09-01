@@ -124,13 +124,14 @@ Detalhes em [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 | 1    | Foundation (scaffold, domínio, CI, Pages)           | ✅     |
 | 2    | Supabase (migrations, schema, RLS, Auth, seed)      | ✅     |
 | 3    | Sessão (venue, session, código/QR, cadastro mínimo) | ✅     |
-| 4    | Músicas (catálogo, busca, favoritos)                | ✅     |
+| 4    | Músicas (catálogo) — _substituída pela FASE 10_     | ↩️     |
 | 5    | Fila (entrar/sair, fila do host)                    | ✅     |
 | 6    | Apresentação (chamar/cantar, telão, Realtime)       | ✅     |
 | 7    | Votação (janela 60s, categorias, resultado)         | ✅     |
 | 8    | Gamificação (XP, badges, ranking)                   | ✅     |
-| 9    | Premiação (Performance da Noite, prêmio)            | ⏳     |
-| 10   | Polimento · 11 E2E · 12 Deploy                       | ⏳     |
+| 9    | Premiação (Performance da Noite)                    | ✅     |
+| 10   | Mídia (texto livre, vídeo do YouTube no telão, DJ)  | ✅     |
+| 11   | Polimento · E2E · Deploy                            | ⏳     |
 
 ---
 

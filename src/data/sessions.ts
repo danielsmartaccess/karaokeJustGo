@@ -76,3 +76,39 @@ async function setSessionStatus(session: Session, to: SessionState): Promise<Ses
 export const openSession = (session: Session) => setSessionStatus(session, 'OPEN');
 export const goLive = (session: Session) => setSessionStatus(session, 'LIVE');
 export const closeSession = (session: Session) => setSessionStatus(session, 'CLOSED');
+
+/**
+ * Host: "modo DJ" — define o vídeo do YouTube que o telão toca enquanto NÃO há
+ * ninguém cantando (o telão sempre prioriza a apresentação atual sobre o DJ).
+ * `null` para parar. Só staff do venue pode escrever (RLS de `sessions`).
+ */
+export async function setDjVideo(sessionId: string, youtubeVideoId: string | null): Promise<Session> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('sessions')
+    .update({
+      dj_youtube_video_id: youtubeVideoId,
+      dj_started_at: youtubeVideoId ? new Date().toISOString() : null,
+    })
+    .eq('id', sessionId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Assina mudanças na própria linha da sessão (status, modo DJ) — usado pelo telão. */
+export function subscribeToSession(sessionId: string, onChange: () => void): () => void {
+  const supabase = getSupabase();
+  const channel = supabase
+    .channel(`session:${sessionId}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` },
+      onChange,
+    )
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}

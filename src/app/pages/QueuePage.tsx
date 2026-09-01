@@ -9,6 +9,7 @@ import {
   subscribeToPerformances,
   type QueueEntry,
 } from '@/data/performances';
+import { getPerformanceOfTheNight, subscribeToAwards, type AwardWithDetails } from '@/data/awards';
 import { readActiveSession } from '@/lib/active-session';
 
 /**
@@ -20,6 +21,7 @@ export function QueuePage() {
   const [current, setCurrent] = useState<QueueEntry | null>(null);
   const [voting, setVoting] = useState<QueueEntry | null>(null);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
+  const [award, setAward] = useState<AwardWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [leavingId, setLeavingId] = useState<string | null>(null);
@@ -46,11 +48,26 @@ export function QueuePage() {
     }
   }, [activeSession]);
 
+  const loadAward = useCallback(async () => {
+    if (!activeSession) return;
+    try {
+      setAward(await getPerformanceOfTheNight(activeSession.id));
+    } catch {
+      // silencioso — não bloqueia o resto da tela
+    }
+  }, [activeSession]);
+
   useEffect(() => {
     void load();
+    void loadAward();
     if (!activeSession) return;
-    return subscribeToPerformances(activeSession.id, () => void load());
-  }, [activeSession, load]);
+    const unsubPerformances = subscribeToPerformances(activeSession.id, () => void load());
+    const unsubAwards = subscribeToAwards(activeSession.id, () => void loadAward());
+    return () => {
+      unsubPerformances();
+      unsubAwards();
+    };
+  }, [activeSession, load, loadAward]);
 
   async function handleLeave(entry: QueueEntry) {
     setLeavingId(entry.id);
@@ -96,6 +113,12 @@ export function QueuePage() {
 
       {errorMessage && <p className="text-center text-sm text-glow-400">{errorMessage}</p>}
 
+      {award && (
+        <div className="rounded-card border border-spotlight-500/60 bg-stage-800 px-4 py-3 text-center text-sm text-spotlight-400">
+          🏆 Performance da Noite: {award.performerName} — {award.songTitle}
+        </div>
+      )}
+
       {loading && <p className="text-center text-sm text-muted">Carregando…</p>}
 
       {current?.isMine && (
@@ -104,7 +127,7 @@ export function QueuePage() {
           <p className="text-lg font-bold text-brand-400">
             {current.status === 'PERFORMING' ? 'Você está cantando agora!' : 'Você foi chamado!'}
           </p>
-          <p className="text-muted">{current.song?.title}</p>
+          <p className="text-muted">{current.songQuery}</p>
           <Button
             variant="outline"
             size="md"
@@ -119,7 +142,7 @@ export function QueuePage() {
       {current && !current.isMine && (
         <p className="text-center text-sm text-muted">
           {current.status === 'PERFORMING' ? '🎤 Cantando agora:' : 'Chamado:'}{' '}
-          <span className="text-ink">{current.performerName}</span> — {current.song?.title}
+          <span className="text-ink">{current.performerName}</span> — {current.songQuery}
         </p>
       )}
 
@@ -167,12 +190,10 @@ export function QueuePage() {
               <span className="text-lg font-bold text-muted">{index + 1}</span>
               <div className="min-w-0">
                 <p className="truncate font-medium text-ink">
-                  {entry.song?.title ?? 'Música'}
+                  {entry.songQuery}
                   {entry.isMine && <span className="ml-2 text-xs text-brand-400">você</span>}
                 </p>
-                <p className="truncate text-sm text-muted">
-                  {entry.song?.artist} · {entry.performerName}
-                </p>
+                <p className="truncate text-sm text-muted">{entry.performerName}</p>
               </div>
             </div>
             {entry.isMine && (

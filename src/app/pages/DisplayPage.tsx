@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Input } from '@/ui/Input';
 import { Button } from '@/ui/Button';
-import { getSessionByCode, type Session } from '@/data/sessions';
+import { getSessionByCode, subscribeToSession, type Session } from '@/data/sessions';
+import { youtubeEmbedUrl } from '@/lib/youtube';
 import { getVenueById, type Venue } from '@/data/identity';
 import {
   getCurrentPerformance,
@@ -17,6 +18,7 @@ import {
   subscribeToPointsTransactions,
   type SessionReputation,
 } from '@/data/gamification';
+import { getPerformanceOfTheNight, subscribeToAwards, type AwardWithDetails } from '@/data/awards';
 import { VOTING_WINDOW_SECONDS } from '@/domain/voting/rules';
 import goMark from '@/assets/go-mark-blue.png';
 
@@ -41,6 +43,7 @@ export function DisplayPage() {
   const [results, setResults] = useState<PerformanceResult | null>(null);
   const [upNext, setUpNext] = useState<QueueEntry[]>([]);
   const [ranking, setRanking] = useState<SessionReputation[]>([]);
+  const [award, setAward] = useState<AwardWithDetails | null>(null);
   const [loading, setLoading] = useState(Boolean(codeParam));
   const [errorMessage, setErrorMessage] = useState('');
   const [, setTick] = useState(0);
@@ -65,11 +68,16 @@ export function DisplayPage() {
         setVenue(await getVenueById(found.venue_id));
         await refresh(found.id);
         await refreshRanking(found.id);
+        await refreshAward(found.id);
         const unsubPerformances = subscribeToPerformances(found.id, () => void refresh(found.id));
         const unsubPoints = subscribeToPointsTransactions(found.id, () => void refreshRanking(found.id));
+        const unsubAwards = subscribeToAwards(found.id, () => void refreshAward(found.id));
+        const unsubSession = subscribeToSession(found.id, () => void refreshSession(found.id));
         unsubscribe = () => {
           unsubPerformances();
           unsubPoints();
+          unsubAwards();
+          unsubSession();
         };
       } catch (err) {
         if (!cancelled) {
@@ -101,6 +109,16 @@ export function DisplayPage() {
     async function refreshRanking(sessionId: string) {
       const top = await getSessionLeaderboard(sessionId, 5);
       if (!cancelled) setRanking(top);
+    }
+
+    async function refreshSession(sessionId: string) {
+      const updated = await getSessionByCode(codeParam!);
+      if (!cancelled && updated && updated.id === sessionId) setSession(updated);
+    }
+
+    async function refreshAward(sessionId: string) {
+      const a = await getPerformanceOfTheNight(sessionId);
+      if (!cancelled) setAward(a);
     }
 
     void load();
@@ -172,7 +190,21 @@ export function DisplayPage() {
         </p>
       </div>
 
-      {voting ? (
+      {award ? (
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-2xl">🏆</p>
+          <p className="text-lg uppercase tracking-[0.2em] text-spotlight-400">
+            Performance da Noite
+          </p>
+          <h1
+            className="text-7xl font-bold text-spotlight-400"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            {award.performerName}
+          </h1>
+          <p className="text-2xl text-ink">{award.songTitle}</p>
+        </div>
+      ) : voting ? (
         <div className="flex flex-col items-center gap-3">
           <p className="text-lg text-muted">
             {voting.status === 'VOTING' ? '🗳️ Votação aberta' : '🏆 Resultado'}
@@ -183,9 +215,7 @@ export function DisplayPage() {
           >
             {voting.performerName}
           </h1>
-          <p className="text-2xl text-ink">
-            {voting.song?.title} <span className="text-muted">— {voting.song?.artist}</span>
-          </p>
+          <p className="text-2xl text-ink">{voting.songQuery}</p>
           {voting.status === 'VOTING' && (
             <p className="text-4xl font-bold text-ink">{secondsLeft(voting.votingStartedAt)}s</p>
           )}
@@ -200,7 +230,7 @@ export function DisplayPage() {
           )}
         </div>
       ) : current ? (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex w-full flex-col items-center gap-3">
           <p className="text-lg text-muted">
             {current.status === 'PERFORMING' ? '🎤 No palco agora' : 'Preparando…'}
           </p>
@@ -210,9 +240,33 @@ export function DisplayPage() {
           >
             {current.performerName}
           </h1>
-          <p className="text-3xl text-ink">
-            {current.song?.title} <span className="text-muted">— {current.song?.artist}</span>
-          </p>
+          <p className="text-3xl text-ink">{current.songQuery}</p>
+          {current.status === 'PERFORMING' && current.youtubeVideoId && (
+            <div className="mt-4 aspect-video w-full overflow-hidden rounded-card border border-stage-700 bg-black">
+              <iframe
+                key={current.youtubeVideoId}
+                src={youtubeEmbedUrl(current.youtubeVideoId, { autoplay: true })}
+                title="Vídeo de karaokê"
+                className="h-full w-full"
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+              />
+            </div>
+          )}
+        </div>
+      ) : session?.dj_youtube_video_id ? (
+        <div className="flex w-full flex-col items-center gap-3">
+          <p className="text-lg text-muted">🎧 Tocando agora</p>
+          <div className="aspect-video w-full overflow-hidden rounded-card border border-stage-700 bg-black">
+            <iframe
+              key={session.dj_youtube_video_id}
+              src={youtubeEmbedUrl(session.dj_youtube_video_id, { autoplay: true })}
+              title="Modo DJ"
+              className="h-full w-full"
+              allow="autoplay; encrypted-media; fullscreen"
+              allowFullScreen
+            />
+          </div>
         </div>
       ) : (
         <p className="text-2xl text-muted">Aguardando o próximo cantor…</p>
@@ -228,7 +282,7 @@ export function DisplayPage() {
                 className="flex items-center justify-between gap-3 rounded-card border border-stage-700 bg-stage-800 px-5 py-3 text-left"
               >
                 <span className="text-muted">{index + 1}</span>
-                <span className="flex-1 text-ink">{entry.song?.title}</span>
+                <span className="flex-1 text-ink">{entry.songQuery}</span>
                 <span className="text-muted">{entry.performerName}</span>
               </li>
             ))}

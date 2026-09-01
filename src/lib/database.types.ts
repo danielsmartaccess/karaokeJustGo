@@ -9,6 +9,48 @@ export type Database = {
   };
   public: {
     Tables: {
+      awards: {
+        Row: {
+          awarded_by: string;
+          code: string;
+          created_at: string;
+          id: string;
+          performance_id: string;
+          session_id: string;
+        };
+        Insert: {
+          awarded_by: string;
+          code: string;
+          created_at?: string;
+          id?: string;
+          performance_id: string;
+          session_id: string;
+        };
+        Update: {
+          awarded_by?: string;
+          code?: string;
+          created_at?: string;
+          id?: string;
+          performance_id?: string;
+          session_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'awards_performance_id_fkey';
+            columns: ['performance_id'];
+            isOneToOne: false;
+            referencedRelation: 'performances';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'awards_session_id_fkey';
+            columns: ['session_id'];
+            isOneToOne: false;
+            referencedRelation: 'sessions';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       badges: {
         Row: {
           code: string;
@@ -42,30 +84,36 @@ export type Database = {
           id: string;
           performer_id: string;
           session_id: string;
-          song_id: string;
+          song_query: string;
           status: Database['public']['Enums']['performance_status'];
           updated_at: string;
           voting_started_at: string | null;
+          youtube_url: string | null;
+          youtube_video_id: string | null;
         };
         Insert: {
           created_at?: string;
           id?: string;
           performer_id: string;
           session_id: string;
-          song_id: string;
+          song_query: string;
           status?: Database['public']['Enums']['performance_status'];
           updated_at?: string;
           voting_started_at?: string | null;
+          youtube_url?: string | null;
+          youtube_video_id?: string | null;
         };
         Update: {
           created_at?: string;
           id?: string;
           performer_id?: string;
           session_id?: string;
-          song_id?: string;
+          song_query?: string;
           status?: Database['public']['Enums']['performance_status'];
           updated_at?: string;
           voting_started_at?: string | null;
+          youtube_url?: string | null;
+          youtube_video_id?: string | null;
         };
         Relationships: [
           {
@@ -73,13 +121,6 @@ export type Database = {
             columns: ['session_id'];
             isOneToOne: false;
             referencedRelation: 'sessions';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'performances_song_id_fkey';
-            columns: ['song_id'];
-            isOneToOne: false;
-            referencedRelation: 'songs';
             referencedColumns: ['id'];
           },
         ];
@@ -192,6 +233,8 @@ export type Database = {
           code: string;
           created_at: string;
           created_by: string;
+          dj_started_at: string | null;
+          dj_youtube_video_id: string | null;
           id: string;
           live_at: string | null;
           opened_at: string | null;
@@ -206,6 +249,8 @@ export type Database = {
           code?: string;
           created_at?: string;
           created_by?: string;
+          dj_started_at?: string | null;
+          dj_youtube_video_id?: string | null;
           id?: string;
           live_at?: string | null;
           opened_at?: string | null;
@@ -219,6 +264,8 @@ export type Database = {
           code?: string;
           created_at?: string;
           created_by?: string;
+          dj_started_at?: string | null;
+          dj_youtube_video_id?: string | null;
           id?: string;
           live_at?: string | null;
           opened_at?: string | null;
@@ -243,36 +290,6 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
-      };
-      songs: {
-        Row: {
-          artist: string;
-          created_at: string;
-          genre: string | null;
-          id: string;
-          language: string | null;
-          title: string;
-          updated_at: string;
-        };
-        Insert: {
-          artist: string;
-          created_at?: string;
-          genre?: string | null;
-          id?: string;
-          language?: string | null;
-          title: string;
-          updated_at?: string;
-        };
-        Update: {
-          artist?: string;
-          created_at?: string;
-          genre?: string | null;
-          id?: string;
-          language?: string | null;
-          title?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
       };
       tenants: {
         Row: {
@@ -337,39 +354,6 @@ export type Database = {
             columns: ['session_id'];
             isOneToOne: false;
             referencedRelation: 'sessions';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      user_favorite_songs: {
-        Row: {
-          created_at: string;
-          profile_id: string;
-          song_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          profile_id: string;
-          song_id: string;
-        };
-        Update: {
-          created_at?: string;
-          profile_id?: string;
-          song_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'user_favorite_songs_profile_id_fkey';
-            columns: ['profile_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_favorite_songs_song_id_fkey';
-            columns: ['song_id'];
-            isOneToOne: false;
-            referencedRelation: 'songs';
             referencedColumns: ['id'];
           },
         ];
@@ -548,6 +532,17 @@ export type Database = {
       };
     };
     Functions: {
+      announce_performance_of_the_night: {
+        Args: { p_session_id: string };
+        Returns: {
+          awarded_by: string;
+          code: string;
+          created_at: string;
+          id: string;
+          performance_id: string;
+          session_id: string;
+        };
+      };
       generate_session_code: { Args: never; Returns: string };
     };
     Enums: {
