@@ -17,9 +17,12 @@ O deploy **não ocorre** se lint, testes ou build falharem.
 ### Configuração única no repositório
 
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
-2. **Settings → Secrets and variables → Actions**, adicionar:
+   (via API: `gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`)
+2. **Settings → Secrets and variables → Actions**, adicionar dois _secrets_:
    - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_SUPABASE_ANON_KEY` (é a _publishable key_ — pode ir para o bundle)
+3. Na aba **Variables** do mesmo lugar, adicionar uma _variable_:
+   - `VITE_DEFAULT_VENUE_SLUG` (ex.: `armazem-anita`) — o app **lança erro** em runtime sem ela.
 
 ### Base path e SPA
 
