@@ -36,10 +36,186 @@
   --font-display:
     'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
 
 :root {
   color-scheme: dark;
+}
+
+/*
+ * Linguagem de palco — luz de neon, holofote, celebração.
+ * Reaproveita os tokens de cor acima (nunca hex novo aqui).
+ */
+@keyframes neon-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 8px var(--color-brand-500),
+      0 0 20px color-mix(in srgb, var(--color-brand-500) 25%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 16px var(--color-brand-500),
+      0 0 40px color-mix(in srgb, var(--color-brand-500) 50%, transparent),
+      0 0 60px color-mix(in srgb, var(--color-brand-500) 25%, transparent);
+  }
+}
+
+@keyframes neon-pulse-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 8px var(--color-glow-500),
+      0 0 20px color-mix(in srgb, var(--color-glow-500) 25%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 16px var(--color-glow-500),
+      0 0 40px color-mix(in srgb, var(--color-glow-500) 50%, transparent),
+      0 0 60px color-mix(in srgb, var(--color-glow-500) 25%, transparent);
+  }
+}
+
+@keyframes neon-pulse-spotlight {
+  0%,
+  100% {
+    box-shadow:
+      0 0 8px var(--color-spotlight-500),
+      0 0 20px color-mix(in srgb, var(--color-spotlight-500) 25%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 16px var(--color-spotlight-500),
+      0 0 40px color-mix(in srgb, var(--color-spotlight-500) 50%, transparent),
+      0 0 60px color-mix(in srgb, var(--color-spotlight-500) 25%, transparent);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes score-reveal {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-120px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(105vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@keyframes spotlight-sweep {
+  0% {
+    transform: rotate(-15deg);
+    opacity: 0.3;
+  }
+  50% {
+    transform: rotate(15deg);
+    opacity: 0.6;
+  }
+  100% {
+    transform: rotate(-15deg);
+    opacity: 0.3;
+  }
+}
+
+@keyframes soundwave {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes hall-of-fame {
+  from {
+    transform: translateX(-60px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-neon-pulse {
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+.animate-neon-pulse-glow {
+  animation: neon-pulse-glow 1.5s ease-in-out infinite;
+}
+.animate-neon-pulse-spotlight {
+  animation: neon-pulse-spotlight 2s ease-in-out infinite;
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+}
+.animate-score-reveal {
+  animation: score-reveal 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+.animate-soundwave {
+  animation: soundwave 1s ease-in-out infinite;
+}
+.animate-spotlight-sweep {
+  animation: spotlight-sweep 3s ease-in-out infinite;
+}
+.animate-hall-of-fame {
+  animation: hall-of-fame 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-neon-pulse,
+  .animate-neon-pulse-glow,
+  .animate-neon-pulse-spotlight,
+  .animate-fade-in-up,
+  .animate-score-reveal,
+  .animate-soundwave,
+  .animate-spotlight-sweep,
+  .animate-hall-of-fame {
+    animation: none;
+  }
+}
+
+.glass {
+  background: color-mix(in srgb, var(--color-stage-800) 60%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--color-brand-500) 15%, transparent);
+}
+
+.glass-bright {
+  background: color-mix(in srgb, var(--color-stage-700) 75%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, var(--color-brand-500) 30%, transparent);
 }
 
 html,

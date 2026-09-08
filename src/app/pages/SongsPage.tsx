@@ -32,28 +32,41 @@ export function SongsPage() {
     }
   }
 
-  return (
-    <main className="mx-auto flex min-h-dvh max-w-lg flex-col gap-5 px-6 py-12">
-      <div className="text-center">
+  if (!activeSession) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand-400">Participante</p>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
-          Pedir música
-        </h1>
-        {activeSession ? (
-          <p className="text-sm text-muted">Sessão {activeSession.code}</p>
-        ) : (
-          <p className="text-sm text-muted">
-            Você ainda não entrou em uma sessão —{' '}
-            <Link to="/join" className="text-brand-400 hover:text-brand-300">
-              entrar agora
-            </Link>
-            .
-          </p>
-        )}
-      </div>
+        <h1 className="text-2xl font-bold">Pedir música</h1>
+        <p className="text-muted">
+          Você ainda não entrou em uma sessão —{' '}
+          <Link to="/join" className="text-brand-400 hover:text-brand-300">
+            entrar agora
+          </Link>
+          .
+        </p>
+      </main>
+    );
+  }
 
-      {activeSession && (
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-6 py-12">
+      <div className="glass-bright w-full animate-fade-in-up rounded-card p-8">
+        <div className="mb-5 flex items-center gap-3">
+          <span className="text-3xl">🎵</span>
+          <div>
+            <h1 className="text-xl font-bold text-ink" style={{ fontFamily: 'var(--font-display)' }}>
+              Pedir música
+            </h1>
+            <p className="text-sm text-muted">
+              Sessão <span className="font-mono text-brand-400">{activeSession.code}</span>
+            </p>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <label className="text-xs uppercase tracking-[0.15em] text-muted">
+            Qual música você quer cantar?
+          </label>
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -63,25 +76,15 @@ export function SongsPage() {
           />
           <p className="text-xs text-muted">
             Escreva a música e, se quiser, o artista. O host acha o vídeo de karaokê e joga no
-            telão quando te chamar.
+            telão quando te chamar — qualquer música, não há catálogo!
           </p>
           <Button type="submit" size="lg" disabled={submitting || !query.trim()}>
             {submitting ? 'Entrando…' : 'Entrar na fila'}
           </Button>
         </form>
-      )}
 
-      {errorMessage && <p className="text-center text-sm text-glow-400">{errorMessage}</p>}
-
-      {activeSession && (
-        <Link to="/queue" className="text-center text-sm text-brand-400 hover:text-brand-300">
-          Ver fila →
-        </Link>
-      )}
-
-      <Link to="/" className="text-center text-sm text-muted hover:text-ink">
-        ← Voltar
-      </Link>
+        {errorMessage && <p className="mt-3 text-center text-sm text-glow-400">{errorMessage}</p>}
+      </div>
     </main>
   );
 }

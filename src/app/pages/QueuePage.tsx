@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/ui/Button';
+import { cn } from '@/lib/utils';
 import {
   getCurrentPerformance,
   getQueue,
@@ -94,27 +95,24 @@ export function QueuePage() {
           </Link>
           .
         </p>
-        <Link to="/" className="text-sm text-muted hover:text-ink">
-          ← Voltar
-        </Link>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-lg flex-col gap-5 px-6 py-12">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-6 py-10">
       <div className="text-center">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand-400">Participante</p>
         <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
           Fila
         </h1>
-        <p className="text-sm text-muted">Sessão {activeSession.code}</p>
+        <p className="font-mono text-sm text-muted">Sessão {activeSession.code}</p>
       </div>
 
       {errorMessage && <p className="text-center text-sm text-glow-400">{errorMessage}</p>}
 
       {award && (
-        <div className="rounded-card border border-spotlight-500/60 bg-stage-800 px-4 py-3 text-center text-sm text-spotlight-400">
+        <div className="rounded-card border border-spotlight-500/50 bg-stage-800 px-4 py-3 text-center text-sm text-spotlight-400">
           🏆 Performance da Noite: {award.performerName} — {award.songTitle}
         </div>
       )}
@@ -122,9 +120,9 @@ export function QueuePage() {
       {loading && <p className="text-center text-sm text-muted">Carregando…</p>}
 
       {current?.isMine && (
-        <div className="flex flex-col items-center gap-3 rounded-card border border-brand-500 bg-stage-800 px-5 py-6 text-center">
-          <p className="text-2xl">🎤</p>
-          <p className="text-lg font-bold text-brand-400">
+        <div className="glass-bright animate-neon-pulse flex flex-col items-center gap-3 rounded-card border border-brand-500/50 px-5 py-7 text-center">
+          <p className="text-3xl">🎤</p>
+          <p className="text-lg font-bold text-brand-400" style={{ fontFamily: 'var(--font-display)' }}>
             {current.status === 'PERFORMING' ? 'Você está cantando agora!' : 'Você foi chamado!'}
           </p>
           <p className="text-muted">{current.songQuery}</p>
@@ -149,7 +147,7 @@ export function QueuePage() {
       {voting && !voting.isMine && (
         <Link
           to="/vote"
-          className="rounded-card border border-glow-500/60 bg-stage-800 px-4 py-3 text-center text-sm text-glow-400 hover:text-glow-300"
+          className="animate-neon-pulse-glow rounded-card border border-glow-500/50 bg-glow-500/10 px-4 py-3 text-center text-sm font-semibold text-glow-400 hover:text-glow-300"
         >
           {voting.status === 'VOTING'
             ? `🗳️ Vote em ${voting.performerName} agora!`
@@ -182,19 +180,20 @@ export function QueuePage() {
         {queue.map((entry, index) => (
           <li
             key={entry.id}
-            className={`flex items-center justify-between gap-3 rounded-card border px-4 py-3 ${
-              entry.isMine ? 'border-brand-500 bg-stage-800' : 'border-stage-700 bg-stage-800'
-            }`}
+            className={cn(
+              'flex items-center gap-3 rounded-card border px-4 py-3',
+              entry.isMine ? 'border-brand-500/50 bg-brand-500/10' : 'border-stage-700 bg-stage-800',
+            )}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="text-lg font-bold text-muted">{index + 1}</span>
-              <div className="min-w-0">
-                <p className="truncate font-medium text-ink">
-                  {entry.songQuery}
-                  {entry.isMine && <span className="ml-2 text-xs text-brand-400">você</span>}
-                </p>
-                <p className="truncate text-sm text-muted">{entry.performerName}</p>
-              </div>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stage-700 font-mono text-sm font-bold text-muted">
+              {index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-ink">
+                {entry.songQuery}
+                {entry.isMine && <span className="ml-2 text-xs text-brand-400">você</span>}
+              </p>
+              <p className="truncate text-sm text-muted">{entry.performerName}</p>
             </div>
             {entry.isMine && (
               <Button
@@ -210,18 +209,6 @@ export function QueuePage() {
           </li>
         ))}
       </ol>
-
-      <Link to="/songs" className="text-center text-sm text-brand-400 hover:text-brand-300">
-        ← Buscar outra música
-      </Link>
-
-      <Link to="/profile" className="text-center text-sm text-brand-400 hover:text-brand-300">
-        🏆 Meu perfil
-      </Link>
-
-      <Link to="/" className="text-center text-sm text-muted hover:text-ink">
-        ← Voltar
-      </Link>
     </main>
   );
 }

@@ -4,6 +4,8 @@ import { canTransition, type SessionState } from '@/domain/session/state-machine
 import type { Tables } from '@/lib/database.types';
 
 export type Session = Tables<'sessions'>;
+export type CtaMessage = 'qr' | 'pedido' | 'vote' | 'next' | 'celebrate';
+export type PlaybackCommand = 'PLAY' | 'PAUSE';
 
 /**
  * Marca este profile como "presente" na sessão (docs/SECURITY.md: elegibilidade de
@@ -105,6 +107,98 @@ export function subscribeToSession(sessionId: string, onChange: () => void): () 
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` },
+      onChange,
+    )
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Host: dispara uma chamada de ação no telão (ex.: "Escaneie o QR", "Vote agora!").
+ * É um sinal efêmero — o telão calcula sozinho (a partir de `cta_triggered_at`) quando
+ * parar de mostrar o banner, então não existe `clearCta`.
+ */
+export async function broadcastCta(sessionId: string, message: CtaMessage): Promise<Session> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('sessions')
+    .update({ cta_message: message, cta_triggered_at: new Date().toISOString() })
+    .eq('id', sessionId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Host: pede pro telão mostrar o ranking em tela cheia até ele mandar fechar. */
+export async function showRankingOnTelao(sessionId: string): Promise<Session> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('sessions')
+    .update({ display_override: 'RANKING' })
+    .eq('id', sessionId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Host: tira o ranking do telão — manual, ou automático ao chamar/marcar/votar de novo. */
+export async function clearDisplayOverride(sessionId: string): Promise<Session> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('sessions')
+    .update({ display_override: null })
+    .eq('id', sessionId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Host: comando remoto de play/pause para o player do telão (outro aparelho/navegador).
+ * O telão assina `subscribeToSession` e aplica o comando comparando `playback_command_at`
+ * com o último timestamp já aplicado, para não repetir a ação.
+ */
+export async function sendPlaybackCommand(sessionId: string, command: PlaybackCommand): Promise<Session> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('sessions')
+    .update({ playback_command: command, playback_command_at: new Date().toISOString() })
+    .eq('id', sessionId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Contagem ao vivo de participantes da sessão — usada no cabeçalho do Host e no lobby do telão. */
+export async function getParticipantCount(sessionId: string): Promise<number> {
+  const supabase = getSupabase();
+  const { count, error } = await supabase
+    .from('session_participants')
+    .select('*', { count: 'exact', head: true })
+    .eq('session_id', sessionId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Assina novas entradas na sessão — usada para manter a contagem de participantes ao vivo. */
+export function subscribeToSessionParticipants(sessionId: string, onChange: () => void): () => void {
+  const supabase = getSupabase();
+  const channel = supabase
+    .channel(`participants:${sessionId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'session_participants',
+        filter: `session_id=eq.${sessionId}`,
+      },
       onChange,
     )
     .subscribe();

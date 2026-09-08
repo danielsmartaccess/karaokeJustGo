@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/ui/Button';
+import { cn } from '@/lib/utils';
 import {
   getVotingPerformance,
   subscribeToPerformances,
@@ -10,11 +11,11 @@ import { getMyVote, getResults, submitVote, type PerformanceResult } from '@/dat
 import { SCORE_CATEGORIES, VOTING_WINDOW_SECONDS, type ScoreCategory } from '@/domain/voting/rules';
 import { readActiveSession } from '@/lib/active-session';
 
-const CATEGORY_LABEL: Record<ScoreCategory, string> = {
-  voice: 'Voz',
-  performance: 'Performance',
-  charisma: 'Carisma',
-  fun: 'Diversão',
+const CATEGORY_LABEL: Record<ScoreCategory, { label: string; icon: string }> = {
+  voice: { label: 'Voz', icon: '🎤' },
+  performance: { label: 'Performance', icon: '🎭' },
+  charisma: { label: 'Carisma', icon: '✨' },
+  fun: { label: 'Diversão', icon: '🎉' },
 };
 
 function secondsLeft(votingStartedAt: string | null): number {
@@ -108,119 +109,138 @@ export function VotePage() {
           </Link>
           .
         </p>
-        <Link to="/" className="text-sm text-muted hover:text-ink">
-          ← Voltar
-        </Link>
       </main>
     );
   }
 
   const remaining = performance ? secondsLeft(performance.votingStartedAt) : 0;
+  const allRated = SCORE_CATEGORIES.every((c) => scores[c] > 0);
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-5 px-6 py-12 text-center">
-      <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand-400">Participante</p>
-      <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
-        Votação
-      </h1>
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-6 py-10">
+      <div className="glass-bright w-full animate-fade-in-up rounded-card p-6 text-center">
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand-400">Participante</p>
+        <h1 className="mb-4 text-2xl font-bold text-ink" style={{ fontFamily: 'var(--font-display)' }}>
+          Votação
+        </h1>
 
-      {errorMessage && <p className="text-sm text-glow-400">{errorMessage}</p>}
+        {errorMessage && <p className="mb-3 text-sm text-glow-400">{errorMessage}</p>}
+        {loading && <p className="text-muted">Carregando…</p>}
 
-      {loading && <p className="text-muted">Carregando…</p>}
-
-      {!loading && !performance && (
-        <p className="text-muted">
-          Nenhuma votação em andamento agora —{' '}
-          <Link to="/queue" className="text-brand-400 hover:text-brand-300">
-            ver a fila
-          </Link>
-          .
-        </p>
-      )}
-
-      {performance?.isMine && (
-        <p className="text-muted">🎤 Você está sendo avaliado agora! Aguarde o resultado.</p>
-      )}
-
-      {performance && !performance.isMine && performance.status === 'VOTING' && !alreadyVoted && (
-        <div className="flex w-full flex-col gap-4">
-          <p className="text-ink">
-            {performance.performerName} — {performance.songQuery}
+        {!loading && !performance && (
+          <p className="text-muted">
+            Nenhuma votação em andamento agora —{' '}
+            <Link to="/queue" className="text-brand-400 hover:text-brand-300">
+              ver a fila
+            </Link>
+            .
           </p>
-          <p className="text-sm text-brand-400">{remaining}s restantes</p>
+        )}
 
-          {remaining === 0 ? (
-            <p className="text-muted">A janela de votação fechou.</p>
-          ) : (
-            <>
-              {SCORE_CATEGORIES.map((category) => (
-                <div key={category} className="flex flex-col gap-2">
-                  <p className="text-sm text-muted">{CATEGORY_LABEL[category]}</p>
-                  <div className="flex justify-center gap-2">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setScores((prev) => ({ ...prev, [category]: n }))}
-                        className={`h-10 w-10 rounded-full text-sm font-medium transition-colors ${
-                          scores[category] >= n
-                            ? 'bg-brand-500 text-stage-950'
-                            : 'bg-stage-800 text-muted hover:text-ink'
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
+        {performance?.isMine && (
+          <p className="text-muted">🎤 Você está sendo avaliado agora! Aguarde o resultado.</p>
+        )}
+
+        {performance && !performance.isMine && performance.status === 'VOTING' && !alreadyVoted && (
+          <div className="flex w-full flex-col gap-4 text-left">
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-ink">
+                {performance.performerName} — {performance.songQuery}
+              </p>
+              <span
+                className={cn(
+                  'shrink-0 rounded-lg border border-glow-500/40 px-2 py-1 font-mono text-sm font-bold text-glow-400',
+                  remaining <= 10 && 'animate-neon-pulse-glow',
+                )}
+              >
+                {remaining}s
+              </span>
+            </div>
+
+            {remaining === 0 ? (
+              <p className="text-center text-muted">A janela de votação fechou.</p>
+            ) : (
+              <>
+                {SCORE_CATEGORIES.map((category) => (
+                  <div key={category} className="flex flex-col gap-2">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                      <span>{CATEGORY_LABEL[category].icon}</span>
+                      {CATEGORY_LABEL[category].label}
+                    </p>
+                    <div className="flex justify-center gap-2">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => setScores((prev) => ({ ...prev, [category]: n }))}
+                          className={cn(
+                            'h-11 w-11 rounded-xl border-2 font-mono text-base font-bold transition-all hover:scale-110 active:scale-95',
+                            scores[category] >= n
+                              ? 'border-brand-500 bg-brand-500/25 text-brand-400'
+                              : 'border-stage-700 bg-stage-800 text-muted',
+                          )}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
-              <button
-                onClick={() => setWouldSingAlong((v) => !v)}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                  wouldSingAlong ? 'bg-brand-500 text-stage-950' : 'bg-stage-800 text-muted'
-                }`}
-              >
-                🫶 Eu cantaria junto {wouldSingAlong ? '✓' : ''}
-              </button>
+                <button
+                  onClick={() => setWouldSingAlong((v) => !v)}
+                  className={cn(
+                    'flex w-full items-center justify-between rounded-2xl border-2 px-4 py-3 transition-all',
+                    wouldSingAlong
+                      ? 'border-brand-400/50 bg-brand-400/10'
+                      : 'border-stage-700 bg-stage-800',
+                  )}
+                >
+                  <span className="font-semibold text-ink">🫶 Eu cantaria junto</span>
+                  <span
+                    className="relative h-6 w-11 rounded-full transition-colors"
+                    style={{ background: wouldSingAlong ? 'var(--color-brand-500)' : 'var(--color-stage-700)' }}
+                  >
+                    <span
+                      className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all"
+                      style={{ left: wouldSingAlong ? '22px' : '2px' }}
+                    />
+                  </span>
+                </button>
 
-              <Button
-                size="lg"
-                disabled={submitting || SCORE_CATEGORIES.some((c) => scores[c] === 0)}
-                onClick={handleSubmit}
-              >
-                {submitting ? 'Enviando…' : 'Votar'}
-              </Button>
-            </>
-          )}
-        </div>
-      )}
-
-      {performance && !performance.isMine && performance.status === 'VOTING' && alreadyVoted && (
-        <p className="text-muted">Voto registrado! Aguardando o resultado…</p>
-      )}
-
-      {performance && performance.status === 'RESULT' && results && (
-        <div className="flex w-full flex-col gap-3 rounded-card border border-brand-500 bg-stage-800 p-5">
-          <p className="text-ink">
-            {performance.performerName} — {performance.songQuery}
-          </p>
-          <p className="text-5xl font-bold text-brand-400">{results.audience_score}</p>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted">Nota da Plateia</p>
-          <div className="grid grid-cols-2 gap-2 text-sm text-muted">
-            <p>Voz: {results.voice_avg}</p>
-            <p>Performance: {results.performance_avg}</p>
-            <p>Carisma: {results.charisma_avg}</p>
-            <p>Diversão: {results.fun_avg}</p>
+                <Button size="lg" disabled={submitting || !allRated} onClick={handleSubmit}>
+                  {submitting ? 'Enviando…' : allRated ? 'Votar' : 'Avalie todas as categorias'}
+                </Button>
+              </>
+            )}
           </div>
-          <p className="text-sm text-muted">
-            🫶 {results.sing_along_percent}% cantariam junto · {results.vote_count} votos
-          </p>
-        </div>
-      )}
+        )}
 
-      <Link to="/queue" className="text-sm text-muted hover:text-ink">
-        ← Voltar para a fila
-      </Link>
+        {performance && !performance.isMine && performance.status === 'VOTING' && alreadyVoted && (
+          <div className="flex flex-col items-center gap-2 py-4">
+            <p className="animate-score-reveal text-4xl">✅</p>
+            <p className="text-muted">Voto registrado! Aguardando o resultado…</p>
+          </div>
+        )}
+
+        {performance && performance.status === 'RESULT' && results && (
+          <div className="flex w-full flex-col gap-3 rounded-card border border-brand-500/40 bg-stage-800 p-5">
+            <p className="text-ink">
+              {performance.performerName} — {performance.songQuery}
+            </p>
+            <p className="font-mono text-5xl font-bold text-brand-400">{results.audience_score ?? '—'}</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted">Nota da Plateia</p>
+            <div className="grid grid-cols-2 gap-2 text-sm text-muted">
+              <p>🎤 Voz: {results.voice_avg ?? '—'}</p>
+              <p>🎭 Performance: {results.performance_avg ?? '—'}</p>
+              <p>✨ Carisma: {results.charisma_avg ?? '—'}</p>
+              <p>🎉 Diversão: {results.fun_avg ?? '—'}</p>
+            </div>
+            <p className="text-sm text-muted">
+              🫶 {results.sing_along_percent ?? 0}% cantariam junto · {results.vote_count ?? 0} votos
+            </p>
+          </div>
+        )}
+      </div>
     </main>
   );
 }

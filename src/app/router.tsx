@@ -7,6 +7,7 @@ import { QueuePage } from './pages/QueuePage';
 import { DisplayPage } from './pages/DisplayPage';
 import { VotePage } from './pages/VotePage';
 import { ProfilePage } from './pages/ProfilePage';
+import { ParticipantLayout } from './pages/ParticipantLayout';
 
 /**
  * Roteamento das três experiências (seções 32–33).
@@ -22,10 +23,12 @@ export function AppRouter() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/join" element={<JoinPage />} />
         <Route path="/join/:code" element={<JoinPage />} />
-        <Route path="/songs" element={<SongsPage />} />
-        <Route path="/queue" element={<QueuePage />} />
-        <Route path="/vote" element={<VotePage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route element={<ParticipantLayout />}>
+          <Route path="/songs" element={<SongsPage />} />
+          <Route path="/queue" element={<QueuePage />} />
+          <Route path="/vote" element={<VotePage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
 
         {/* HOST */}
         <Route path="/host" element={<HostPage />} />

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   getMyBadges,
   getMyReputation,
@@ -56,7 +55,7 @@ export function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-6 py-12 text-center">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-6 py-10 text-center">
       <div>
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand-400">Participante</p>
         <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
@@ -69,15 +68,15 @@ export function ProfilePage() {
 
       {!loading && (
         <>
-          <div className="flex flex-col items-center gap-1 rounded-card border border-brand-500 bg-stage-800 px-5 py-6">
-            <p className="text-5xl font-bold text-brand-400">{reputation?.total_xp ?? 0}</p>
+          <div className="glass-bright flex animate-fade-in-up flex-col items-center gap-1 rounded-card border border-brand-500/40 px-5 py-7">
+            <p className="font-mono text-5xl font-bold text-brand-400">{reputation?.total_xp ?? 0}</p>
             <p className="text-xs uppercase tracking-[0.2em] text-muted">XP total</p>
           </div>
 
           <div>
-            <p className="mb-3 text-sm uppercase tracking-[0.2em] text-muted">Badges</p>
+            <p className="mb-3 text-left text-sm uppercase tracking-[0.2em] text-muted">Badges</p>
             {badges.length === 0 ? (
-              <p className="text-sm text-muted">Nenhum badge ainda — participe de uma sessão!</p>
+              <p className="text-left text-sm text-muted">Nenhum badge ainda — participe de uma sessão!</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {badges.map(({ badge, earnedAt }) => (
@@ -85,7 +84,9 @@ export function ProfilePage() {
                     key={badge.id}
                     className="flex items-center gap-3 rounded-card border border-stage-700 bg-stage-800 px-4 py-3 text-left"
                   >
-                    <span className="text-2xl">{badge.icon}</span>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-brand-500/30 bg-brand-500/10 text-xl">
+                      {badge.icon}
+                    </span>
                     <div className="min-w-0">
                       <p className="font-medium text-ink">{badge.name}</p>
                       <p className="text-sm text-muted">{badge.description}</p>
@@ -101,18 +102,20 @@ export function ProfilePage() {
 
           {activeSession && leaderboard.length > 0 && (
             <div>
-              <p className="mb-3 text-sm uppercase tracking-[0.2em] text-muted">
-                Ranking desta sessão
+              <p className="mb-3 text-left text-sm uppercase tracking-[0.2em] text-muted">
+                🏆 Ranking desta sessão
               </p>
               <ol className="flex flex-col gap-2">
                 {leaderboard.map((entry, index) => (
                   <li
                     key={entry.profile_id}
-                    className="flex items-center justify-between gap-3 rounded-card border border-stage-700 bg-stage-800 px-4 py-3 text-left"
+                    className="flex items-center gap-3 rounded-card border border-stage-700 bg-stage-800 px-4 py-3 text-left"
                   >
-                    <span className="text-muted">{index + 1}</span>
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stage-700 font-mono text-xs font-bold text-muted">
+                      {index + 1}
+                    </span>
                     <span className="flex-1 truncate text-ink">{entry.display_name}</span>
-                    <span className="text-brand-400">{entry.session_xp} XP</span>
+                    <span className="font-mono font-bold text-brand-400">{entry.session_xp} XP</span>
                   </li>
                 ))}
               </ol>
@@ -120,10 +123,6 @@ export function ProfilePage() {
           )}
         </>
       )}
-
-      <Link to="/" className="text-sm text-muted hover:text-ink">
-        ← Voltar
-      </Link>
     </main>
   );
 }

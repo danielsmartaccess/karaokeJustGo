@@ -233,11 +233,19 @@ export type Database = {
           code: string;
           created_at: string;
           created_by: string;
+          /** 'qr' | 'pedido' | 'vote' | 'next' | 'celebrate' — sinal efêmero de CTA no telão. */
+          cta_message: string | null;
+          cta_triggered_at: string | null;
+          /** Hoje só 'RANKING' — override manual do que o telão mostra. */
+          display_override: string | null;
           dj_started_at: string | null;
           dj_youtube_video_id: string | null;
           id: string;
           live_at: string | null;
           opened_at: string | null;
+          /** 'PLAY' | 'PAUSE' — comando remoto para o player do telão. */
+          playback_command: string | null;
+          playback_command_at: string | null;
           status: Database['public']['Enums']['session_status'];
           title: string | null;
           updated_at: string;
@@ -249,11 +257,16 @@ export type Database = {
           code?: string;
           created_at?: string;
           created_by?: string;
+          cta_message?: string | null;
+          cta_triggered_at?: string | null;
+          display_override?: string | null;
           dj_started_at?: string | null;
           dj_youtube_video_id?: string | null;
           id?: string;
           live_at?: string | null;
           opened_at?: string | null;
+          playback_command?: string | null;
+          playback_command_at?: string | null;
           status?: Database['public']['Enums']['session_status'];
           title?: string | null;
           updated_at?: string;
@@ -264,11 +277,16 @@ export type Database = {
           code?: string;
           created_at?: string;
           created_by?: string;
+          cta_message?: string | null;
+          cta_triggered_at?: string | null;
+          display_override?: string | null;
           dj_started_at?: string | null;
           dj_youtube_video_id?: string | null;
           id?: string;
           live_at?: string | null;
           opened_at?: string | null;
+          playback_command?: string | null;
+          playback_command_at?: string | null;
           status?: Database['public']['Enums']['session_status'];
           title?: string | null;
           updated_at?: string;

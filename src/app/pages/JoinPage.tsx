@@ -71,110 +71,133 @@ export function JoinPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
-      <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand-400">Participante</p>
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-6 py-12">
+      <div className="glass-bright w-full animate-fade-in-up rounded-card p-8 text-center">
+        {step === 'code' && (
+          <>
+            <div className="mb-5 text-5xl">🎤</div>
+            <h1 className="mb-1 text-2xl font-bold text-ink" style={{ fontFamily: 'var(--font-display)' }}>
+              Entrar na sessão
+            </h1>
+            <p className="mb-6 text-sm text-muted">Digite o código de 6 dígitos mostrado no telão ou no QR.</p>
+            <form onSubmit={handleCodeSubmit} className="flex w-full flex-col gap-3">
+              <Input
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+                placeholder="CÓDIGO"
+                maxLength={6}
+                autoFocus
+                className="text-center font-mono text-2xl font-bold uppercase tracking-[0.35em]"
+              />
+              <Button type="submit" size="lg" disabled={codeInput.trim().length < 4}>
+                Continuar
+              </Button>
+            </form>
+          </>
+        )}
+
+        {step === 'checking' && <p className="py-8 text-muted">Procurando sessão…</p>}
+
+        {step === 'not-found' && (
+          <>
+            <h1 className="mb-2 text-2xl font-bold text-ink">Código não encontrado</h1>
+            <p className="mb-6 text-muted">Confira o código e tente de novo.</p>
+            <Button onClick={() => navigate('/join')} className="w-full">
+              Tentar outro código
+            </Button>
+          </>
+        )}
+
+        {step === 'not-open' && session && (
+          <>
+            <h1 className="mb-2 text-2xl font-bold text-ink">
+              {session.status === 'SCHEDULED' ? 'Sessão ainda não abriu' : 'Sessão encerrada'}
+            </h1>
+            <p className="mb-6 text-muted">
+              {venue?.name ?? 'Esta sessão'}
+              {session.status === 'SCHEDULED'
+                ? ' ainda não está aberta para entrada. Aguarde o host abrir.'
+                : ' já foi encerrada.'}
+            </p>
+            <Button onClick={() => navigate('/join')} className="w-full">
+              Tentar outro código
+            </Button>
+          </>
+        )}
+
+        {(step === 'profile' || step === 'joining') && session && (
+          <>
+            <div className="mb-4 text-4xl">🎉</div>
+            <h1 className="mb-1 text-xl font-bold text-ink" style={{ fontFamily: 'var(--font-display)' }}>
+              {venue?.name ?? 'Sessão'}
+            </h1>
+            <p className="mb-6 text-sm text-muted">
+              Sessão <span className="font-mono text-brand-400">{session.code}</span> · cadastro rápido
+            </p>
+            <form onSubmit={handleProfileSubmit} className="flex w-full flex-col gap-3">
+              <Input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Seu nome"
+                autoFocus
+                disabled={step === 'joining'}
+              />
+              <Input
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                placeholder="WhatsApp"
+                type="tel"
+                disabled={step === 'joining'}
+              />
+              <Button
+                type="submit"
+                size="lg"
+                disabled={step === 'joining' || !displayName.trim() || !whatsapp.trim()}
+              >
+                {step === 'joining' ? 'Entrando…' : 'Vamos nessa!'}
+              </Button>
+            </form>
+          </>
+        )}
+
+        {step === 'joined' && (
+          <div className="flex flex-col items-center gap-3">
+            <p className="animate-score-reveal text-5xl">🎉</p>
+            <h1 className="text-2xl font-bold text-ink" style={{ fontFamily: 'var(--font-display)' }}>
+              Você entrou na sessão!
+            </h1>
+            <p className="text-muted">
+              {venue?.name}
+              {session?.code ? (
+                <>
+                  {' · código '}
+                  <span className="font-mono text-brand-400">{session.code}</span>
+                </>
+              ) : (
+                ''
+              )}
+            </p>
+            <Link to="/songs" className="mt-2 w-full">
+              <Button size="lg" className="w-full">
+                Buscar música
+              </Button>
+            </Link>
+          </div>
+        )}
+
+        {step === 'error' && (
+          <>
+            <h1 className="mb-2 text-2xl font-bold text-ink">Algo deu errado</h1>
+            <p className="mb-6 text-glow-400">{errorMessage}</p>
+            <Button onClick={() => setStep('code')} className="w-full">
+              Tentar de novo
+            </Button>
+          </>
+        )}
+      </div>
 
       {step === 'code' && (
-        <>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
-            Entrar na sessão
-          </h1>
-          <p className="text-muted">Digite o código de 6 dígitos mostrado no telão ou no QR.</p>
-          <form onSubmit={handleCodeSubmit} className="flex w-full flex-col gap-3">
-            <Input
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-              placeholder="ABC123"
-              maxLength={6}
-              autoFocus
-              className="text-center text-2xl font-bold uppercase tracking-[0.3em]"
-            />
-            <Button type="submit" size="lg" disabled={codeInput.trim().length < 4}>
-              Continuar
-            </Button>
-          </form>
-        </>
-      )}
-
-      {step === 'checking' && <p className="text-muted">Procurando sessão…</p>}
-
-      {step === 'not-found' && (
-        <>
-          <h1 className="text-2xl font-bold">Código não encontrado</h1>
-          <p className="text-muted">Confira o código e tente de novo.</p>
-          <Button onClick={() => navigate('/join')}>Tentar outro código</Button>
-        </>
-      )}
-
-      {step === 'not-open' && session && (
-        <>
-          <h1 className="text-2xl font-bold">
-            {session.status === 'SCHEDULED' ? 'Sessão ainda não abriu' : 'Sessão encerrada'}
-          </h1>
-          <p className="text-muted">
-            {venue?.name ?? 'Esta sessão'}
-            {session.status === 'SCHEDULED'
-              ? ' ainda não está aberta para entrada. Aguarde o host abrir.'
-              : ' já foi encerrada.'}
-          </p>
-          <Button onClick={() => navigate('/join')}>Tentar outro código</Button>
-        </>
-      )}
-
-      {(step === 'profile' || step === 'joining') && session && (
-        <>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
-            {venue?.name ?? 'Sessão'}
-          </h1>
-          <p className="text-muted">Cadastro rápido — só o essencial para participar.</p>
-          <form onSubmit={handleProfileSubmit} className="flex w-full flex-col gap-3">
-            <Input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Seu nome"
-              autoFocus
-              disabled={step === 'joining'}
-            />
-            <Input
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              placeholder="WhatsApp"
-              type="tel"
-              disabled={step === 'joining'}
-            />
-            <Button
-              type="submit"
-              size="lg"
-              disabled={step === 'joining' || !displayName.trim() || !whatsapp.trim()}
-            >
-              {step === 'joining' ? 'Entrando…' : 'Entrar'}
-            </Button>
-          </form>
-        </>
-      )}
-
-      {step === 'joined' && (
-        <>
-          <p className="text-4xl">🎉</p>
-          <h1 className="text-2xl font-bold">Você entrou na sessão!</h1>
-          <p className="text-muted">
-            {venue?.name}
-            {session?.code ? ` · código ${session.code}` : ''}
-          </p>
-          <Link to="/songs" className="w-full">
-            <Button size="lg" className="w-full">
-              Buscar música
-            </Button>
-          </Link>
-        </>
-      )}
-
-      {step === 'error' && (
-        <>
-          <h1 className="text-2xl font-bold">Algo deu errado</h1>
-          <p className="text-muted">{errorMessage}</p>
-          <Button onClick={() => setStep('code')}>Tentar de novo</Button>
-        </>
+        <p className="text-center text-xs text-muted">ou escaneie o QR Code no telão</p>
       )}
 
       <Link to="/" className="text-sm text-muted hover:text-ink">
