@@ -194,15 +194,15 @@ seed) não escalava: qualquer pedido fora do seed travava a fila. Substituído p
     nova:** a policy de UPDATE "performer or venue staff" já cobre staff, e
     `validate_performance_transition()` faz `return new` quando o status não muda, então
     setar só as colunas de vídeo passa.
-- **`sessions`** ganha `dj_youtube_video_id text` / `dj_started_at timestamptz` — "modo
-  DJ": vídeo que o telão toca **só quando ninguém está cantando** (o telão sempre
-  prioriza a apresentação atual). Escrita restrita a `venue_staff` pela policy de UPDATE
-  já existente. `sessions` já estava na publication `supabase_realtime` (FASE 6) — o
-  telão recebe a troca de vídeo ao vivo.
 - Sem YouTube Data API: o host busca `"<nome> karaokê"` no YouTube por fora e cola o
   link (`src/lib/youtube.ts` só extrai o id e monta as URLs). Sem cota, sem custo, e o
-  host confere o vídeo antes de projetar. Spotify entra só como deep-link no frontend
-  (abre no app do host), sem schema.
+  host confere o vídeo antes de projetar.
+
+> **Modo DJ removido (2026-09-10):** as colunas `sessions.dj_youtube_video_id` /
+> `dj_started_at` da FASE 10 foram descartadas (migration `20260910190000_drop_dj_mode`).
+> O modo DJ dividia o container do player do YouTube com o ramo da apresentação e
+> travava o telão ao alternar. Música de intervalo agora fica por conta do host, fora
+> do app (som da casa / outra aba), sem chamar o próximo da fila.
 
 ## Papéis
 

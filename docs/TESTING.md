@@ -105,9 +105,6 @@ URLs (dev, `npm run dev`, base `/karaokeJustGo/`):
    atalho "buscar … karaokê ↗" pra achar) → `Começou a cantar` → checa que o **TELÃO**
    sobe o `<iframe>` do vídeo e que `/queue` do Participante A reflete "cantando agora" via
    Realtime (sem reload). Sem link, o telão cai no fallback de texto.
-7b. **HOST** (opcional, "modo DJ"): na seção "🎧 Tocar agora", cola um link do YouTube →
-    `Tocar no telão` → confirma que o **TELÃO** toca o vídeo enquanto ninguém canta e que
-    `Parar` volta pro estado de espera.
 8. **HOST**: `Iniciar votação` → **Participante B** (não A) vai em `/vote`, avalia as 4
    categorias (Voz/Performance/Carisma/Diversão, 1–5) + "eu cantaria junto" → `Votar`.
    Confirma que **Participante A** vê "Você está sendo avaliado" (sem poder votar) e que o

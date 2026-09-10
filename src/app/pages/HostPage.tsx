@@ -91,8 +91,8 @@ function secondsLeft(votingStartedAt: string | null): number {
  * vem de `venue_staff` — não existe login separado, é a mesma identidade anônima
  * do participante (docs/SECURITY.md, docs/ARCHITECTURE.md).
  * FASE 6: chamar o próximo da fila e marcar quem está cantando, ao vivo (Realtime).
- * Redesign "cabine de DJ": QR code, contagem de participantes, comando remoto de
- * play/pause, CTAs para o telão e ranking sob demanda.
+ * Cabine do host: QR code, contagem de participantes, comando remoto de play/pause
+ * do vídeo em cena, CTAs para o telão e ranking sob demanda.
  */
 export function HostPage() {
   const [loading, setLoading] = useState(true);
@@ -674,7 +674,7 @@ export function HostPage() {
 
               {isOpenOrLive && (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                  {/* Coluna principal: no ar agora + modo DJ + votação */}
+                  {/* Coluna principal: no ar agora + votação */}
                   <div className="flex flex-col gap-4 lg:col-span-2">
                     {current && (
                       <div className="glass-bright rounded-card p-4">

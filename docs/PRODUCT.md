@@ -42,9 +42,9 @@ espetáculo em tempo real.
 
 **Vídeo da música (FASE 10):** não há catálogo curado — o participante digita o que quer
 cantar e o host acha o vídeo de karaokê no YouTube (`"<nome> karaokê"`) e joga no telão
-via `<iframe>` embed ao chamar. O mesmo mecanismo serve de "modo DJ" pro host animar a
-casa entre apresentações (YouTube no telão; Spotify por deep-link no app dele). Sem
-YouTube Data API — o host cola o link, sem cota nem custo.
+via player embed ao chamar. Sem YouTube Data API — o host cola o link, sem cota nem custo.
+Música de intervalo fica por conta do host, fora do app (o "modo DJ" foi removido em
+2026-09-10 por travar o telão ao alternar com o vídeo da apresentação).
 
 **Não faz no MVP (seção 60):** rede social completa, chat/DM, upload de músicas, streaming
 próprio, catálogo/curadoria de músicas, processamento de voz, IA de avaliação,

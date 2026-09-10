@@ -238,8 +238,6 @@ export type Database = {
           cta_triggered_at: string | null;
           /** Hoje só 'RANKING' — override manual do que o telão mostra. */
           display_override: string | null;
-          dj_started_at: string | null;
-          dj_youtube_video_id: string | null;
           id: string;
           live_at: string | null;
           opened_at: string | null;
@@ -260,8 +258,6 @@ export type Database = {
           cta_message?: string | null;
           cta_triggered_at?: string | null;
           display_override?: string | null;
-          dj_started_at?: string | null;
-          dj_youtube_video_id?: string | null;
           id?: string;
           live_at?: string | null;
           opened_at?: string | null;
@@ -280,8 +276,6 @@ export type Database = {
           cta_message?: string | null;
           cta_triggered_at?: string | null;
           display_override?: string | null;
-          dj_started_at?: string | null;
-          dj_youtube_video_id?: string | null;
           id?: string;
           live_at?: string | null;
           opened_at?: string | null;

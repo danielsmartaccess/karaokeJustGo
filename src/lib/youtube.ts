@@ -61,13 +61,3 @@ export function youtubeWatchUrl(videoId: string): string {
 export function youtubeKaraokeSearchUrl(query: string): string {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} karaokê`)}`;
 }
-
-/** Busca genérica no YouTube (modo DJ — não é karaokê). */
-export function youtubeSearchUrl(query: string): string {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-}
-
-/** Busca no Spotify (web) — o deep link abre no app se o host tiver instalado. */
-export function spotifySearchUrl(query: string): string {
-  return `https://open.spotify.com/search/${encodeURIComponent(query)}`;
-}

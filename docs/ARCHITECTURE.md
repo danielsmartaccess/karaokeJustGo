@@ -128,7 +128,7 @@ vivem no domínio como funções puras. Componentes React apenas as consomem.
 
 - **`lib/youtube.ts`** — funções puras: `parseYouTubeId` (aceita `watch?v=`, `youtu.be/`,
   `/embed/`, `/shorts/`, `/live/` ou o id cru), `youtubeEmbedUrl` (nocookie + autoplay),
-  `youtubeWatchUrl`, `youtubeKaraokeSearchUrl`/`youtubeSearchUrl`, `spotifySearchUrl`.
+  `youtubeWatchUrl` e `youtubeKaraokeSearchUrl`.
   Nenhuma chamada de rede — a busca acontece no YouTube, fora do app.
 - **`data/performances.ts`** — `QueueEntry` troca `song` (join com catálogo) por
   `songQuery`/`youtubeVideoId`/`youtubeUrl` lidos direto da linha; `hydrate` deixa de
