@@ -10,7 +10,6 @@ import {
   openSession,
   goLive,
   closeSession,
-  setDjVideo,
   broadcastCta,
   showRankingOnTelao,
   clearDisplayOverride,
@@ -21,13 +20,7 @@ import {
   type CtaMessage,
   type PlaybackCommand,
 } from '@/data/sessions';
-import {
-  parseYouTubeId,
-  youtubeWatchUrl,
-  youtubeKaraokeSearchUrl,
-  youtubeSearchUrl,
-  spotifySearchUrl,
-} from '@/lib/youtube';
+import { parseYouTubeId, youtubeWatchUrl, youtubeKaraokeSearchUrl } from '@/lib/youtube';
 import { ensureAnonymousSession, getDefaultVenue, getMyVenueStaffRole } from '@/data/identity';
 import { canTransition, type SessionState } from '@/domain/session/state-machine';
 import {
@@ -124,10 +117,8 @@ export function HostPage() {
   const [awardBySession, setAwardBySession] = useState<Record<string, AwardWithDetails | null>>({});
   const [announcingSessionId, setAnnouncingSessionId] = useState<string | null>(null);
   const [confirmAwardSessionId, setConfirmAwardSessionId] = useState<string | null>(null);
-  // FASE 10: link do YouTube que o host cola para o cantor chamado / para o modo DJ.
+  // FASE 10: link do YouTube que o host cola para o cantor chamado.
   const [videoInputBySession, setVideoInputBySession] = useState<Record<string, string>>({});
-  const [djInputBySession, setDjInputBySession] = useState<Record<string, string>>({});
-  const [djBusySessionId, setDjBusySessionId] = useState<string | null>(null);
   // Redesign: QR ampliado, contagem de participantes, comando de playback, CTAs.
   const [qrModalSessionId, setQrModalSessionId] = useState<string | null>(null);
   const [participantCountBySession, setParticipantCountBySession] = useState<Record<string, number>>({});
@@ -396,38 +387,6 @@ export function HostPage() {
     }
   }
 
-  async function handleSetDjVideo(session: Session) {
-    const id = parseYouTubeId(djInputBySession[session.id] ?? '');
-    if (!id) {
-      setErrorMessage('Cole um link do YouTube para tocar no telão.');
-      return;
-    }
-    setDjBusySessionId(session.id);
-    setErrorMessage('');
-    try {
-      const updated = await setDjVideo(session.id, id);
-      setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-      setDjInputBySession((prev) => ({ ...prev, [session.id]: '' }));
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível tocar no telão.');
-    } finally {
-      setDjBusySessionId(null);
-    }
-  }
-
-  async function handleStopDj(session: Session) {
-    setDjBusySessionId(session.id);
-    setErrorMessage('');
-    try {
-      const updated = await setDjVideo(session.id, null);
-      setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível parar.');
-    } finally {
-      setDjBusySessionId(null);
-    }
-  }
-
   async function handleCancelCurrent(session: Session, entry: QueueEntry) {
     setMarkingId(entry.id);
     setErrorMessage('');
@@ -621,7 +580,7 @@ export function HostPage() {
           const queue = queueBySession[session.id] ?? [];
           const rawLink = videoInputBySession[session.id] ?? '';
           const previewId = parseYouTubeId(rawLink) || current?.youtubeVideoId || null;
-          const canControlPlayback = Boolean(current?.youtubeVideoId) || Boolean(session.dj_youtube_video_id);
+          const canControlPlayback = Boolean(current?.youtubeVideoId);
 
           return (
             <div key={session.id} className="glass rounded-card p-4 sm:p-5">
@@ -853,90 +812,6 @@ export function HostPage() {
                         )}
                       </div>
                     )}
-
-                    {/* Modo DJ */}
-                    <div className="glass rounded-card p-4">
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">🎧</span>
-                          <h2 className="font-bold text-ink" style={{ fontFamily: 'var(--font-display)' }}>
-                            Modo DJ
-                          </h2>
-                          <span className="text-xs text-muted">música de fundo nos intervalos</span>
-                        </div>
-                        {session.dj_youtube_video_id && (
-                          <span className="rounded-full border border-brand-500/40 bg-brand-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-400">
-                            no ar
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Input
-                          value={djInputBySession[session.id] ?? ''}
-                          onChange={(e) =>
-                            setDjInputBySession((prev) => ({ ...prev, [session.id]: e.target.value }))
-                          }
-                          placeholder="Link do YouTube, ou termo de busca"
-                          className="min-w-[200px] flex-1 text-sm"
-                        />
-                        <Button
-                          size="md"
-                          disabled={djBusySessionId === session.id}
-                          onClick={() => handleSetDjVideo(session)}
-                        >
-                          Tocar no telão
-                        </Button>
-                        {session.dj_youtube_video_id && (
-                          <>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              disabled={playbackBusySessionId === session.id}
-                              onClick={() => handlePlayback(session, 'PLAY')}
-                              title="Retomar"
-                            >
-                              ▶
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              disabled={playbackBusySessionId === session.id}
-                              onClick={() => handlePlayback(session, 'PAUSE')}
-                              title="Pausar"
-                            >
-                              ⏸
-                            </Button>
-                            <Button
-                              size="md"
-                              variant="outline"
-                              disabled={djBusySessionId === session.id}
-                              onClick={() => handleStopDj(session)}
-                            >
-                              Parar
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-                        <a
-                          href={youtubeSearchUrl(djInputBySession[session.id] ?? '')}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-brand-400 hover:text-brand-300"
-                        >
-                          YouTube ↗
-                        </a>
-                        <a
-                          href={spotifySearchUrl(djInputBySession[session.id] ?? '')}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-brand-400 hover:text-brand-300"
-                        >
-                          Spotify ↗
-                        </a>
-                        <span className="text-muted">O telão só toca isto quando ninguém está cantando.</span>
-                      </div>
-                    </div>
 
                     {/* Votação ao vivo */}
                     {voting && (

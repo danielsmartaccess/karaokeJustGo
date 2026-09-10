@@ -136,12 +136,15 @@ vivem no domínio como funções puras. Componentes React apenas as consomem.
   texto livre. `markPerforming(id, video?)` grava o vídeo na mesma transição
   `CALLED → PERFORMING`; `setPerformanceVideo(id, video)` troca o vídeo sem mexer no
   status.
-- **`data/sessions.ts`** — `setDjVideo(sessionId, id | null)` e `subscribeToSession`
-  (Realtime `UPDATE` em `sessions`) para o "modo DJ".
+- **`data/sessions.ts`** — `subscribeToSession` (Realtime `UPDATE` em `sessions`) leva
+  ao telão o `status`, o CTA e o comando remoto de playback (`sendPlaybackCommand`).
 - **`SongsPage`** vira um formulário de texto livre ("Pedir música") — sem lista, sem
-  favoritos. **`HostPage`**: campo de link do YouTube no card do chamado + seção
-  "🎧 Tocar agora (DJ)". **`DisplayPage`**: `<iframe>` do YouTube (nocookie, autoplay)
-  quando há vídeo em `PERFORMING`; senão, o vídeo do modo DJ; senão, o texto de sempre.
+  favoritos. **`HostPage`**: campo de link do YouTube no card do chamado + controles
+  remotos do telão (Play/Pause/Pular) e a "Central do Telão" (CTAs + ranking).
+  **`DisplayPage`**: player do YouTube (IFrame API, nocookie, autoplay) quando há vídeo
+  em `PERFORMING`; senão, o texto de sempre. O player é montado num `<div>` interno
+  criado imperativamente — o React nunca reconcilia o nó que o IFrame API substitui,
+  o que antes travava o telão ao desmontar.
 - **Caveat de autoplay:** navegador pode bloquear autoplay **com som** sem um gesto
   prévio do usuário na página do telão — o operador clica uma vez no player pra liberar.
 

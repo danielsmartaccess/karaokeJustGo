@@ -119,10 +119,12 @@ Não existe UI de auto-promoção — é um ato de confiança explícito.
 - Participante: entra pelo QR → pede música (texto livre, ex.: "Evidências") → entra na fila.
 - Host: para cada pessoa da fila → **Chamar** → **Marcar cantando**. No card do chamado,
   colar o **link do YouTube** do karaokê (buscar "<música> karaokê" no YouTube por fora).
+- Durante a música: no card do chamado o host controla o telão remotamente —
+  **▶ Play / ⏸ Pause / ⏭ Pular**, além de **Começou!**, **Votar** e **Cancelar**.
 - Ao fim da música: host abre a **votação** (janela de 60s, nota 1–5). O telão e os
   celulares mostram o resultado agregado automaticamente.
-- **Modo DJ** (música ambiente entre apresentações): seção "🎧 Tocar agora" no `/host`,
-  colar um link do YouTube — toca no telão quando não há ninguém cantando.
+- **Central do Telão**: botões de CTA ("Escaneie o QR", "Vote agora!", etc.) e
+  **"Mostrar Ranking no Telão"** para conduzir a dinâmica da noite.
 
 ### Encerrar
 1. Host → **Encerrar sessão** (status `CLOSED`).

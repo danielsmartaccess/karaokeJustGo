@@ -191,9 +191,24 @@ export function DisplayPage() {
   const [, setTick] = useState(0);
 
   const playerRef = useRef<YouTubePlayer | null>(null);
-  const playerContainerRef = useRef<HTMLDivElement | null>(null);
+  const playerHostRef = useRef<HTMLDivElement | null>(null);
   const loadedVideoIdRef = useRef<string | null>(null);
   const lastAppliedCommandAtRef = useRef<string | null>(null);
+
+  // O IFrame API do YouTube SUBSTITUI o elemento que recebe pelo <iframe>. Se esse
+  // elemento for um nó que o React controla, o React quebra ("removeChild") ao
+  // desmontar o telão — era o que travava a página. Damos ao YouTube um <div>
+  // interno criado na mão, que o React nunca reconcilia; ele só cuida do wrapper.
+  function destroyPlayer() {
+    try {
+      playerRef.current?.destroy();
+    } catch {
+      // o iframe já pode ter saído do DOM — ignorar
+    }
+    playerRef.current = null;
+    loadedVideoIdRef.current = null;
+    if (playerHostRef.current) playerHostRef.current.replaceChildren();
+  }
 
   useEffect(() => {
     if (!codeParam) return;
@@ -299,23 +314,16 @@ export function DisplayPage() {
   }, [voting?.status, session?.cta_message, session?.cta_triggered_at]);
 
   const videoBranchActive = !award && session?.display_override !== 'RANKING' && !voting;
-  const activeVideoId = videoBranchActive
-    ? current?.status === 'PERFORMING' && current.youtubeVideoId
+  const activeVideoId =
+    videoBranchActive && current?.status === 'PERFORMING' && current.youtubeVideoId
       ? current.youtubeVideoId
-      : !current && session?.dj_youtube_video_id
-        ? session.dj_youtube_video_id
-        : null
-    : null;
+      : null;
 
   // Player real do YouTube (IFrame API) — permite o host pausar/retomar remotamente.
   // Se a API não carregar em 4s (rede bloqueando youtube.com), cai para o <iframe> simples.
   useEffect(() => {
     if (!activeVideoId) {
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-        loadedVideoIdRef.current = null;
-      }
+      destroyPlayer();
       setApiUnavailable(false);
       return;
     }
@@ -325,10 +333,13 @@ export function DisplayPage() {
     }, 4000);
     void loadYouTubeIframeApi().then(() => {
       window.clearTimeout(timeout);
-      if (cancelled || !playerContainerRef.current || !window.YT) return;
+      if (cancelled || !playerHostRef.current || !window.YT) return;
       setApiUnavailable(false);
       if (!playerRef.current) {
-        playerRef.current = new window.YT.Player(playerContainerRef.current, {
+        const mount = document.createElement('div');
+        mount.className = 'h-full w-full';
+        playerHostRef.current.replaceChildren(mount);
+        playerRef.current = new window.YT.Player(mount, {
           videoId: activeVideoId,
           host: 'https://www.youtube-nocookie.com',
           playerVars: { autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1 },
@@ -347,7 +358,7 @@ export function DisplayPage() {
 
   useEffect(() => {
     return () => {
-      playerRef.current?.destroy();
+      destroyPlayer();
     };
   }, []);
 
@@ -614,7 +625,7 @@ export function DisplayPage() {
                   allowFullScreen
                 />
               ) : (
-                <div ref={playerContainerRef} className="h-full w-full" />
+                <div ref={playerHostRef} className="h-full w-full" />
               )
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-stage-900">
@@ -647,31 +658,6 @@ export function DisplayPage() {
               )}
             </div>
 
-            <div className="absolute bottom-[2%] right-[2%] flex flex-col items-center gap-1 opacity-60">
-              <QrCode value={joinUrl} size={64} />
-              <p className="font-mono text-[0.8vw] text-white">{session?.code}</p>
-            </div>
-          </div>
-        ) : session?.dj_youtube_video_id ? (
-          <div className="absolute inset-0">
-            {apiUnavailable ? (
-              <iframe
-                key={session.dj_youtube_video_id}
-                src={youtubeEmbedUrl(session.dj_youtube_video_id, { autoplay: true })}
-                title="Modo DJ"
-                className="h-full w-full"
-                allow="autoplay; encrypted-media; fullscreen"
-                allowFullScreen
-              />
-            ) : (
-              <div ref={playerContainerRef} className="h-full w-full" />
-            )}
-            <div
-              className="absolute left-0 right-0 top-0 flex items-center gap-[2%] px-[3%] py-[1.5%]"
-              style={{ background: 'linear-gradient(to bottom, color-mix(in srgb, var(--color-stage-950) 85%, transparent), transparent)' }}
-            >
-              <span className="text-[1.4vw] text-brand-300">🎧 Tocando agora</span>
-            </div>
             <div className="absolute bottom-[2%] right-[2%] flex flex-col items-center gap-1 opacity-60">
               <QrCode value={joinUrl} size={64} />
               <p className="font-mono text-[0.8vw] text-white">{session?.code}</p>
