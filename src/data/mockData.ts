@@ -7,6 +7,10 @@ import { KARAOKE_CATALOG } from './karaokeCatalog';
  * As músicas vêm do catálogo verificado (src/data/karaokeCatalog.ts), não de
  * ids escritos à mão: assim a demonstração toca vídeo de karaokê de verdade,
  * igual ao que o participante encontra na busca.
+ *
+ * Os telefones são fictícios (51 99999-000X) e existem só para exercitar o
+ * botão de chamada no WhatsApp. Nunca colocar número real aqui: o repositório
+ * é público e o modo demo roda em sala de aula.
  */
 
 /**
@@ -14,7 +18,7 @@ import { KARAOKE_CATALOG } from './karaokeCatalog';
  *
  * Se o catálogo for regerado e a música sair (vídeo removido do YouTube), cai
  * na primeira do catálogo em vez de quebrar a tela no meio da noite. O teste
- * `demo-data.test.ts` acusa a divergência antes disso chegar ao bar.
+ * `catalog.test.ts` acusa a divergência antes disso chegar ao bar.
  */
 export function songByTitle(title: string): Song {
   return KARAOKE_CATALOG.find((s) => s.title === title) ?? KARAOKE_CATALOG[0];
@@ -42,7 +46,7 @@ const fmt = (minutesAgo: number) =>
 export const INITIAL_PLAYING: QueueEntry = {
   id: 'q0',
   participant: 'Ana',
-  phone: '51981418383',
+  phone: '51999990001',
   song: songByTitle('Evidências'),
   requestedAt: fmt(35),
   startedAt: fmt(5),
@@ -53,7 +57,7 @@ export const INITIAL_QUEUE: QueueEntry[] = [
   {
     id: 'q1',
     participant: 'Carlos',
-    phone: '51982345678',
+    phone: '51999990002',
     song: songByTitle('Cheia de Manias'),
     requestedAt: fmt(30),
     status: 'next',
@@ -61,7 +65,7 @@ export const INITIAL_QUEUE: QueueEntry[] = [
   {
     id: 'q2',
     participant: 'Julia',
-    phone: '51991234567',
+    phone: '51999990003',
     song: songByTitle('Perfect'),
     requestedAt: fmt(25),
     status: 'waiting',
@@ -69,7 +73,7 @@ export const INITIAL_QUEUE: QueueEntry[] = [
   {
     id: 'q3',
     participant: 'Marcos',
-    phone: '51998765432',
+    phone: '51999990004',
     song: songByTitle('Tempo Perdido'),
     requestedAt: fmt(20),
     status: 'waiting',
