@@ -7,6 +7,7 @@ import SearchBar from '../components/SearchBar';
 import SongCard from '../components/SongCard';
 import Modal from '../components/ui/Modal';
 import Logo from '../components/Logo';
+import ErrorMessage from '../components/ErrorMessage';
 import { Clock, ListMusic, Music2, Play, Loader2 } from 'lucide-react';
 
 type Screen = 'home' | 'results' | 'pending';
@@ -76,7 +77,7 @@ function YouTubeResultCard({
 }
 
 export default function ParticipantView({ onViewQueue }: ParticipantViewProps) {
-  const { state, dispatch } = useKaraoke();
+  const { state, dispatch, connection } = useKaraoke();
   const [screen, setScreen] = useState<Screen>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [ytResults, setYtResults] = useState<YouTubeResult[]>([]);
@@ -182,6 +183,16 @@ export default function ParticipantView({ onViewQueue }: ParticipantViewProps) {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
+        {connection === 'error' && (
+          <div className="mb-6">
+            <ErrorMessage
+              title="Sem conexão com o karaokê"
+              message="Sua solicitação pode não chegar ao Host. Tente recarregar a página."
+              onRetry={() => window.location.reload()}
+            />
+          </div>
+        )}
+
         {/* HOME */}
         {screen === 'home' && (
           <>

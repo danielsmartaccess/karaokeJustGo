@@ -127,6 +127,10 @@ decisão de negócio e está preparada em
 [`supabase/scripts/drop-legacy-schema.sql`](../supabase/scripts/drop-legacy-schema.sql), para
 execução manual após exportar o que tiver valor histórico.
 
+Pelo mesmo motivo, as migrations de agosto de 2026 continuam em `supabase/migrations/`. Elas
+não descrevem o produto atual, mas descrevem o banco atual — apagá-las quebraria a promessa de
+reconstruir o banco a partir da pasta. Saem junto com as tabelas, quando for a hora.
+
 ## Regenerar os tipos
 
 ```bash
