@@ -1,0 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Exo 2', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* ─── Japanese 80s Karaoke × Just Go identity ─── */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #06000e;
+  color: #f0f0ff;
+  background-image:
+    linear-gradient(rgba(233, 30, 140, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(233, 30, 140, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Neon glows — pink/magenta as primary */
+.neon-glow-purple {
+  box-shadow: 0 0 15px rgba(233, 30, 140, 0.4), 0 0 40px rgba(233, 30, 140, 0.12);
+}
+.neon-glow-pink {
+  box-shadow: 0 0 15px rgba(233, 30, 140, 0.4), 0 0 40px rgba(233, 30, 140, 0.12);
+}
+.neon-glow-cyan {
+  box-shadow: 0 0 15px rgba(0, 212, 224, 0.4), 0 0 40px rgba(0, 212, 224, 0.12);
+}
+.neon-glow-green {
+  box-shadow: 0 0 15px rgba(74, 222, 128, 0.35), 0 0 40px rgba(74, 222, 128, 0.1);
+}
+.neon-glow-yellow {
+  box-shadow: 0 0 15px rgba(255, 225, 0, 0.35), 0 0 40px rgba(255, 225, 0, 0.1);
+}
+
+/* Neon text */
+.neon-text-purple {
+  text-shadow: 0 0 14px rgba(233, 30, 140, 0.8), 0 0 35px rgba(233, 30, 140, 0.35);
+}
+.neon-text-pink {
+  text-shadow: 0 0 14px rgba(233, 30, 140, 0.8), 0 0 35px rgba(233, 30, 140, 0.35);
+}
+.neon-text-cyan {
+  text-shadow: 0 0 14px rgba(0, 212, 224, 0.8), 0 0 35px rgba(0, 212, 224, 0.35);
+}
+
+/* Gradient title — karaoke 80s style */
+.gradient-title {
+  background: linear-gradient(135deg, #e91e8c 0%, #00d4e0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gradient-title-rev {
+  background: linear-gradient(135deg, #00d4e0 0%, #e91e8c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Retro scanlines overlay */
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.04) 2px,
+    rgba(0, 0, 0, 0.04) 4px
+  );
+  z-index: 1;
+}
+
+/* Retro border — Japanese karaoke style */
+.retro-border {
+  border: 1px solid rgba(233, 30, 140, 0.2);
+  box-shadow: inset 0 0 20px rgba(233, 30, 140, 0.05);
+}
+
+/* Telão transition */
+@keyframes telao-fade-in {
+  from { opacity: 0; transform: scale(1.01) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.telao-enter {
+  animation: telao-fade-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(233, 30, 140, 0.25);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(233, 30, 140, 0.45);
+}

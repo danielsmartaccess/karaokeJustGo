@@ -1,0 +1,10 @@
+{
+  "description": "Automates prompt execution to streamline workflows and enhance productivity for users needing efficient task automation.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
