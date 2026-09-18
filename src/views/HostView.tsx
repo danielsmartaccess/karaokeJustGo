@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useKaraoke, type ConnectionStatus } from '../store/KaraokeContext';
-import type { ScreenContent, Advertisement } from '../types';
+import type { ScreenContent, Advertisement, QueueEntry } from '../types';
 import { PRESET_CTAS, PRESET_NOTICES, DURATION_OPTIONS } from '../data/mockData';
 import Badge from '../components/ui/Badge';
 import HistoryTable from '../components/HistoryTable';
@@ -8,6 +8,7 @@ import EmptyState from '../components/EmptyState';
 import Logo from '../components/Logo';
 import { QRCodeSVG } from 'qrcode.react';
 import { participantUrl } from '../lib/urls';
+import { buildWhatsAppUrl, openWhatsApp } from '../lib/whatsapp';
 import {
   Mic2,
   Play,
@@ -27,6 +28,8 @@ import {
   QrCode,
   ThumbsUp,
   ThumbsDown,
+  MessageCircle,
+  Check,
 } from 'lucide-react';
 
 type HostTab = 'karaoke' | 'telao' | 'comunicacao' | 'publicidade';
@@ -71,35 +74,156 @@ function fmtTime(s: number): string {
   return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `0:${sec.toString().padStart(2, '0')}`;
 }
 
-// --- Telão Preview ---
+/**
+ * Chamada do proximo cantor pelo WhatsApp.
+ *
+ * Abre a conversa com a mensagem pronta e marca a entrada como avisada, para o
+ * Host nao repetir a chamada quando trocar de aparelho. Fica desabilitado
+ * quando o participante nao deixou telefone — o campo e opcional.
+ */
+function WhatsAppCallButton({
+  entry,
+  isNext,
+  compact = false,
+}: {
+  entry: QueueEntry;
+  isNext: boolean;
+  compact?: boolean;
+}) {
+  const { dispatch } = useKaraoke();
+  const url = buildWhatsAppUrl(entry, isNext);
+  const jaAvisado = Boolean(entry.notifiedAt);
+
+  const handleCall = () => {
+    if (!url) return;
+    openWhatsApp(url);
+    dispatch({ type: 'MARK_NOTIFIED', entryId: entry.id });
+  };
+
+  if (!url) {
+    return (
+      <span
+        title="Participante nao informou o WhatsApp"
+        className={
+          compact
+            ? 'p-1.5 text-slate-700 cursor-not-allowed inline-flex'
+            : 'shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-800 cursor-not-allowed'
+        }
+      >
+        <MessageCircle className="w-4 h-4" />
+        {!compact && 'Sem WhatsApp'}
+      </span>
+    );
+  }
+
+  const rotulo = jaAvisado ? `Chamado as ${entry.notifiedAt}` : 'Chamar no WhatsApp';
+
+  if (compact) {
+    return (
+      <button
+        onClick={handleCall}
+        title={rotulo}
+        className={`p-1.5 rounded-lg transition-colors ${
+          jaAvisado
+            ? 'text-green-500/60 hover:bg-green-500/10'
+            : 'text-green-400 hover:bg-green-500/15'
+        }`}
+      >
+        {jaAvisado ? <Check className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleCall}
+      title={rotulo}
+      className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+        jaAvisado
+          ? 'bg-slate-800/60 text-slate-400 border-slate-700'
+          : 'bg-green-600/15 hover:bg-green-600/30 text-green-400 border-green-500/35'
+      }`}
+    >
+      {jaAvisado ? <Check className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
+      {jaAvisado ? `Chamado ${entry.notifiedAt}` : 'Chamar'}
+    </button>
+  );
+}
+
+/**
+ * Miniatura do que a TV está exibindo neste instante.
+ *
+ * Lê o mesmo estado que o modo palco, em vez de receber só o conteúdo
+ * temporário. Antes o modo karaokê mostrava um participante fixo escrito no
+ * código ("Ana — Evidências") e o preview nunca acompanhava a apresentação
+ * real nem o telão desligado: o Host olhava para uma figura decorativa
+ * acreditando estar conferindo a TV.
+ */
 function TelaoPreview({ content }: { content: ScreenContent | null }) {
+  const { state } = useKaraoke();
+  const { currentPlaying, queue } = state;
+  const isOnline = state.telao?.isOnline ?? true;
+
   const type = content?.type ?? 'karaoke';
   const meta = CONTENT_TYPE_META[type];
+
+  // Telão desligado sobrepõe qualquer conteúdo — é o que a TV mostra.
+  if (!isOnline) {
+    return (
+      <div className="relative w-full aspect-video bg-[#06000e] border border-red-900/40 rounded-xl overflow-hidden flex flex-col items-center justify-center gap-1">
+        <span className="text-2xl opacity-30">📺</span>
+        <p className="text-red-400/80 font-display font-bold text-xs">Telão Offline</p>
+        <p className="text-slate-700 text-[9px]">Desconectado pelo Host</p>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full aspect-video bg-[#07070f] border border-slate-700 rounded-xl overflow-hidden">
       {/* Scanline overlay for TV feel */}
       <div className="absolute inset-0 pointer-events-none z-10 bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(0,0,0,0.03)_2px,rgba(0,0,0,0.03)_4px)]" />
 
-      {(!content || type === 'karaoke') && (
-        <div className="absolute inset-0 flex flex-col p-3">
-          <div className="text-[9px] font-mono text-purple-400 mb-2 tracking-widest">
-            ▶ AGORA CANTANDO
+      {type === 'karaoke' &&
+        (currentPlaying ? (
+          <div className="absolute inset-0 flex flex-col">
+            {/* Mesma composição do palco: vídeo ocupando a tela, identidade embaixo */}
+            <div className="absolute inset-0 bg-black">
+              <img
+                src={currentPlaying.song.thumbnail}
+                alt=""
+                className="w-full h-full object-cover opacity-70"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.visibility = 'hidden';
+                }}
+              />
+            </div>
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-3 pt-8 pb-2.5">
+              <div className="text-[8px] font-mono text-pink-400 tracking-[0.25em] uppercase mb-0.5">
+                ▶ Agora Cantando
+              </div>
+              <div
+                className="font-display font-black text-white leading-none truncate"
+                style={{ fontSize: 'clamp(11px, 3vw, 20px)' }}
+              >
+                {currentPlaying.participant}
+              </div>
+              <div className="text-pink-300 truncate" style={{ fontSize: 'clamp(8px, 2vw, 12px)' }}>
+                {currentPlaying.song.title}
+              </div>
+            </div>
+            {queue.length > 0 && (
+              <div className="absolute top-2 left-3 text-[8px] font-mono text-slate-400 bg-black/50 rounded px-1.5 py-0.5 backdrop-blur-sm">
+                Próximo: {queue[0].participant}
+              </div>
+            )}
           </div>
-          <div
-            className="text-base font-display font-black text-white leading-none mb-1"
-            style={{ fontSize: 'clamp(10px, 3vw, 18px)' }}
-          >
-            Ana
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <span className="text-2xl opacity-20">🎤</span>
+            <p className="text-slate-600 font-display font-bold text-xs">Aguardando início</p>
+            <p className="text-slate-700 text-[9px]">Nenhuma apresentação em andamento</p>
           </div>
-          <div className="text-purple-300 mb-1" style={{ fontSize: 'clamp(8px, 2vw, 12px)' }}>
-            Evidências
-          </div>
-          <div className="flex-1 bg-slate-900 rounded-lg flex items-center justify-center">
-            <Tv2 className="w-5 h-5 text-slate-700" />
-          </div>
-        </div>
-      )}
+        ))}
 
       {type === 'cta' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-[#07070f]">
@@ -162,6 +286,13 @@ function TelaoStatusCard() {
   const type = currentContent?.type ?? 'karaoke';
   const meta = CONTENT_TYPE_META[type];
 
+  // No modo karaokê o título é quem está cantando, não um rótulo genérico.
+  const titulo =
+    currentContent?.title ??
+    (state.currentPlaying
+      ? `${state.currentPlaying.participant} — ${state.currentPlaying.song.title}`
+      : 'Aguardando início');
+
   return (
     <div className={`rounded-xl border p-4 ${meta.bg}`}>
       <div className="flex items-center justify-between mb-3">
@@ -184,9 +315,7 @@ function TelaoStatusCard() {
           <div className={`text-sm font-mono font-bold tracking-widest ${meta.color}`}>
             {meta.label}
           </div>
-          <div className="text-white font-semibold text-sm mt-0.5 leading-snug">
-            {currentContent?.title ?? 'Apresentação de Karaokê'}
-          </div>
+          <div className="text-white font-semibold text-sm mt-0.5 leading-snug">{titulo}</div>
           {timeRemaining !== null && (
             <div className="flex items-center gap-1.5 mt-1.5">
               <Clock className="w-3.5 h-3.5 text-slate-500" />
@@ -887,6 +1016,7 @@ function KaraokeTab() {
                 <span className="text-slate-600 mx-2">—</span>
                 <span className="text-slate-400 text-sm">{queue[0].song.title}</span>
               </div>
+              <WhatsAppCallButton entry={queue[0]} isNext />
               <button
                 onClick={() => dispatch({ type: 'START_PLAYING', entryId: queue[0].id })}
                 disabled={!!currentPlaying}
@@ -1009,6 +1139,7 @@ function KaraokeTab() {
                             >
                               <Play className="w-4 h-4" />
                             </button>
+                            <WhatsAppCallButton entry={entry} isNext={index === 0} compact />
                             <button
                               onClick={() => dispatch({ type: 'MOVE_UP', entryId: entry.id })}
                               disabled={index === 0}

@@ -9,11 +9,11 @@ público, e o Host comanda a noite inteira de um painel só.
 
 ## As três telas
 
-| Quem             | Rota      | O que faz                                                         |
-| ---------------- | --------- | ----------------------------------------------------------------- |
-| **Participante** | `#/`      | Busca a versão karaokê, informa o nome e pede para entrar na fila |
-| **Modo Palco**   | `#/telao` | Apresentação, chamadas, avisos, publicidade e QR code de entrada  |
-| **Host**         | `#/host`  | Aprova a fila, conduz as apresentações e comanda o telão          |
+| Quem             | Rota      | O que faz                                                               |
+| ---------------- | --------- | ----------------------------------------------------------------------- |
+| **Participante** | `#/`      | Escolhe no catálogo ou busca, informa o nome e pede para entrar na fila |
+| **Modo Palco**   | `#/telao` | Apresentação, chamadas, avisos, publicidade e QR code de entrada        |
+| **Host**         | `#/host`  | Aprova a fila, chama o próximo pelo WhatsApp e comanda o telão          |
 
 As três abrem a mesma aplicação em dispositivos diferentes e compartilham o mesmo estado via
 Supabase Realtime.
@@ -41,6 +41,19 @@ entre dispositivos.
 
 \* Ausentes, o app cai em modo demo em vez de falhar.
 
+## Catálogo de karaokê
+
+A tela do participante abre com 34 músicas das mais pedidas em karaokê, filtráveis por gênero.
+O catálogo é **gerado**, não escrito à mão:
+
+```bash
+node scripts/gen-karaoke-catalog.mjs         # regera src/data/karaokeCatalog.ts
+node scripts/gen-karaoke-catalog.mjs --dry   # só confere, sem escrever
+```
+
+Cada vídeo é conferido na geração: existe, é público e toca embutido. Vídeo de karaokê sai do
+ar, então vale regerar antes de um evento.
+
 ## Comandos
 
 ```bash
@@ -56,6 +69,13 @@ npm run format      # Prettier
 
 > `npm run test:e2e` roda contra o build. Se o `.env` tiver Supabase, os testes **escrevem no
 > banco real**. Ver [`docs/TESTING.md`](docs/TESTING.md).
+
+Para verificar a sincronia entre os três dispositivos ao mesmo tempo, antes de um evento:
+
+```bash
+npm run build && npm run preview     # num terminal
+node scripts/verifica-sincronia.mjs  # noutro
+```
 
 ## Stack
 

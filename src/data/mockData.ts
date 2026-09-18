@@ -1,115 +1,36 @@
-import type { Song, QueueEntry, Advertisement } from '../types';
+import type { Advertisement, QueueEntry, Song } from '../types';
+import { KARAOKE_CATALOG } from './karaokeCatalog';
 
-export const MOCK_SONGS: Song[] = [
-  {
-    id: '1',
-    title: 'Locked Out of Heaven',
-    artist: 'Bruno Mars',
-    duration: '3:52',
-    thumbnail: 'https://img.youtube.com/vi/B_wubTHN42k/hqdefault.jpg',
-    youtubeId: 'B_wubTHN42k',
-    available: true,
-  },
-  {
-    id: '2',
-    title: 'Blinding Lights',
-    artist: 'The Weeknd',
-    duration: '3:20',
-    thumbnail: 'https://img.youtube.com/vi/4NRXx6U8ABQ/hqdefault.jpg',
-    youtubeId: '4NRXx6U8ABQ',
-    available: true,
-  },
-  {
-    id: '3',
-    title: 'Houdini',
-    artist: 'Dua Lipa',
-    duration: '3:07',
-    thumbnail: 'https://img.youtube.com/vi/zzSvhgCuDKY/hqdefault.jpg',
-    youtubeId: 'zzSvhgCuDKY',
-    available: true,
-  },
-  {
-    id: '4',
-    title: "Don't Stop Me Now",
-    artist: 'Queen',
-    duration: '3:29',
-    thumbnail: 'https://img.youtube.com/vi/HgzGwKwLmgM/hqdefault.jpg',
-    youtubeId: 'HgzGwKwLmgM',
-    available: true,
-  },
-  {
-    id: '5',
-    title: 'Believer',
-    artist: 'Imagine Dragons',
-    duration: '3:24',
-    thumbnail: 'https://img.youtube.com/vi/7wtfhZwyrcc/hqdefault.jpg',
-    youtubeId: '7wtfhZwyrcc',
-    available: true,
-  },
-  {
-    id: '6',
-    title: "Livin' on a Prayer",
-    artist: 'Bon Jovi',
-    duration: '4:09',
-    thumbnail: 'https://img.youtube.com/vi/lDK9QqIzhwk/hqdefault.jpg',
-    youtubeId: 'lDK9QqIzhwk',
-    available: true,
-  },
-  {
-    id: '7',
-    title: 'Someone Like You',
-    artist: 'Adele',
-    duration: '4:45',
-    thumbnail: 'https://img.youtube.com/vi/hLQl3WQQoQ0/hqdefault.jpg',
-    youtubeId: 'hLQl3WQQoQ0',
-    available: true,
-  },
-  {
-    id: '8',
-    title: 'Perfect',
-    artist: 'Ed Sheeran',
-    duration: '4:23',
-    thumbnail: 'https://img.youtube.com/vi/2Vv-BfVoq4g/hqdefault.jpg',
-    youtubeId: '2Vv-BfVoq4g',
-    available: true,
-  },
-  {
-    id: '9',
-    title: "Sweet Child O' Mine",
-    artist: "Guns N' Roses",
-    duration: '5:03',
-    thumbnail: 'https://img.youtube.com/vi/1w7OgIMMRc4/hqdefault.jpg',
-    youtubeId: '1w7OgIMMRc4',
-    available: true,
-  },
-  {
-    id: '10',
-    title: 'Evidências',
-    artist: 'Chitãozinho & Xororó',
-    duration: '4:12',
-    thumbnail: 'https://img.youtube.com/vi/b4ZGzaohFog/hqdefault.jpg',
-    youtubeId: 'b4ZGzaohFog',
-    available: true,
-  },
-  {
-    id: '11',
-    title: 'Billie Jean',
-    artist: 'Michael Jackson',
-    duration: '4:54',
-    thumbnail: 'https://img.youtube.com/vi/Zi_XLOBDo_Y/hqdefault.jpg',
-    youtubeId: 'Zi_XLOBDo_Y',
-    available: true,
-  },
-  {
-    id: '12',
-    title: 'Cheia de Manias',
-    artist: 'Raça Negra',
-    duration: '4:35',
-    thumbnail: 'https://img.youtube.com/vi/KgqLUauGWXo/hqdefault.jpg',
-    youtubeId: 'KgqLUauGWXo',
-    available: false,
-  },
-];
+/**
+ * Dados do MODO DEMO — quando o Supabase não está configurado.
+ *
+ * As músicas vêm do catálogo verificado (src/data/karaokeCatalog.ts), não de
+ * ids escritos à mão: assim a demonstração toca vídeo de karaokê de verdade,
+ * igual ao que o participante encontra na busca.
+ */
+
+/**
+ * Busca uma música do catálogo pelo título.
+ *
+ * Se o catálogo for regerado e a música sair (vídeo removido do YouTube), cai
+ * na primeira do catálogo em vez de quebrar a tela no meio da noite. O teste
+ * `demo-data.test.ts` acusa a divergência antes disso chegar ao bar.
+ */
+export function songByTitle(title: string): Song {
+  return KARAOKE_CATALOG.find((s) => s.title === title) ?? KARAOKE_CATALOG[0];
+}
+
+/** Títulos usados pela demonstração — o teste confere que todos existem. */
+export const DEMO_SONG_TITLES = [
+  'Evidências',
+  'Cheia de Manias',
+  'Tempo Perdido',
+  'Anunciação',
+  'Perfect',
+  'Someone Like You',
+  'Blinding Lights',
+  'Bohemian Rhapsody',
+] as const;
 
 const now = new Date();
 const fmt = (minutesAgo: number) =>
@@ -122,7 +43,7 @@ export const INITIAL_PLAYING: QueueEntry = {
   id: 'q0',
   participant: 'Ana',
   phone: '51981418383',
-  song: MOCK_SONGS[9],
+  song: songByTitle('Evidências'),
   requestedAt: fmt(35),
   startedAt: fmt(5),
   status: 'playing',
@@ -133,7 +54,7 @@ export const INITIAL_QUEUE: QueueEntry[] = [
     id: 'q1',
     participant: 'Carlos',
     phone: '51982345678',
-    song: MOCK_SONGS[5],
+    song: songByTitle('Cheia de Manias'),
     requestedAt: fmt(30),
     status: 'next',
   },
@@ -141,7 +62,7 @@ export const INITIAL_QUEUE: QueueEntry[] = [
     id: 'q2',
     participant: 'Julia',
     phone: '51991234567',
-    song: MOCK_SONGS[7],
+    song: songByTitle('Perfect'),
     requestedAt: fmt(25),
     status: 'waiting',
   },
@@ -149,14 +70,14 @@ export const INITIAL_QUEUE: QueueEntry[] = [
     id: 'q3',
     participant: 'Marcos',
     phone: '51998765432',
-    song: MOCK_SONGS[8],
+    song: songByTitle('Tempo Perdido'),
     requestedAt: fmt(20),
     status: 'waiting',
   },
   {
     id: 'q4',
     participant: 'Fernanda',
-    song: MOCK_SONGS[6],
+    song: songByTitle('Anunciação'),
     requestedAt: fmt(15),
     status: 'waiting',
   },
@@ -166,7 +87,7 @@ export const INITIAL_HISTORY: QueueEntry[] = [
   {
     id: 'h1',
     participant: 'Rafael',
-    song: MOCK_SONGS[3],
+    song: songByTitle('Bohemian Rhapsody'),
     requestedAt: fmt(80),
     startedAt: fmt(60),
     finishedAt: fmt(56),
@@ -175,7 +96,7 @@ export const INITIAL_HISTORY: QueueEntry[] = [
   {
     id: 'h2',
     participant: 'Lucas',
-    song: MOCK_SONGS[1],
+    song: songByTitle('Blinding Lights'),
     requestedAt: fmt(55),
     startedAt: fmt(52),
     finishedAt: fmt(50),
@@ -184,7 +105,7 @@ export const INITIAL_HISTORY: QueueEntry[] = [
   {
     id: 'h3',
     participant: 'Camila',
-    song: MOCK_SONGS[2],
+    song: songByTitle('Someone Like You'),
     requestedAt: fmt(110),
     startedAt: fmt(95),
     finishedAt: fmt(91),
@@ -192,7 +113,7 @@ export const INITIAL_HISTORY: QueueEntry[] = [
   },
 ];
 
-// --- Telão content library ---
+// --- Biblioteca de conteúdos do telão ---
 
 export interface PresetCTA {
   id: string;

@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import type { Song } from '../types';
-import { MOCK_SONGS } from '../data/mockData';
+import {
+  CATEGORY_LABELS,
+  KARAOKE_CATALOG,
+  type CatalogSong,
+  type KaraokeCategory,
+} from '../data/karaokeCatalog';
 import { useKaraoke } from '../store/KaraokeContext';
 import { searchKaraoke, type YouTubeResult } from '../services/youtubeSearch';
 import SearchBar from '../components/SearchBar';
@@ -11,6 +16,17 @@ import ErrorMessage from '../components/ErrorMessage';
 import { Clock, ListMusic, Music2, Play, Loader2 } from 'lucide-react';
 
 type Screen = 'home' | 'results' | 'pending';
+
+/** 'todas' = catalogo inteiro; as demais filtram por genero. */
+type CategoryFilter = KaraokeCategory | 'todas';
+
+const CATEGORY_FILTERS: { id: CategoryFilter; label: string }[] = [
+  { id: 'todas', label: 'Todas' },
+  ...(Object.keys(CATEGORY_LABELS) as KaraokeCategory[]).map((id) => ({
+    id: id as CategoryFilter,
+    label: CATEGORY_LABELS[id],
+  })),
+];
 
 interface ParticipantViewProps {
   onViewQueue: () => void;
@@ -79,6 +95,7 @@ function YouTubeResultCard({
 export default function ParticipantView({ onViewQueue }: ParticipantViewProps) {
   const { state, dispatch, connection } = useKaraoke();
   const [screen, setScreen] = useState<Screen>('home');
+  const [category, setCategory] = useState<CategoryFilter>('todas');
   const [searchQuery, setSearchQuery] = useState('');
   const [ytResults, setYtResults] = useState<YouTubeResult[]>([]);
   const [isMockResults, setIsMockResults] = useState(false);
@@ -116,14 +133,13 @@ export default function ParticipantView({ onViewQueue }: ParticipantViewProps) {
     setShowModal(true);
   };
 
-  const handlePickMockSong = (song: Song) => {
-    const fakeResult: YouTubeResult = {
+  const handlePickCatalogSong = (song: CatalogSong) => {
+    handlePickResult({
       youtubeId: song.youtubeId,
-      title: `${song.title} (Karaokê)`,
-      channelTitle: song.artist,
-      thumbnail: `https://img.youtube.com/vi/${song.youtubeId}/mqdefault.jpg`,
-    };
-    handlePickResult(fakeResult);
+      title: `${song.title} — ${song.artist} (Karaokê)`,
+      channelTitle: song.channel || song.artist,
+      thumbnail: song.thumbnail,
+    });
   };
 
   const handleConfirmPropose = () => {
@@ -158,6 +174,11 @@ export default function ParticipantView({ onViewQueue }: ParticipantViewProps) {
     setPhone('');
     setSubmittedEntry(null);
   };
+
+  const suggestions =
+    category === 'todas'
+      ? KARAOKE_CATALOG
+      : KARAOKE_CATALOG.filter((song) => song.category === category);
 
   const queueCount = state.queue.length + (state.currentPlaying ? 1 : 0);
 
@@ -209,12 +230,38 @@ export default function ParticipantView({ onViewQueue }: ParticipantViewProps) {
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs font-mono text-slate-600 uppercase tracking-[0.2em]">
-                Sugestões populares
-              </p>
-              {MOCK_SONGS.slice(0, 6).map((song) => (
-                <SongCard key={song.id} song={song} onSing={() => handlePickMockSong(song)} />
-              ))}
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-xs font-mono text-slate-600 uppercase tracking-[0.2em]">
+                  As mais pedidas no karaokê
+                </p>
+                <span className="text-[10px] font-mono text-slate-700 shrink-0">
+                  {suggestions.length} músicas
+                </span>
+              </div>
+
+              {/* Filtro por gênero — o catálogo é longo demais para rolar no celular */}
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+                {CATEGORY_FILTERS.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    onClick={() => setCategory(id)}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                      category === id
+                        ? 'text-white border-transparent'
+                        : 'text-slate-500 border-slate-800 hover:text-slate-300 hover:border-slate-700'
+                    }`}
+                    style={category === id ? { background: '#e91e8c' } : {}}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-3 pt-1">
+                {suggestions.map((song) => (
+                  <SongCard key={song.id} song={song} onSing={() => handlePickCatalogSong(song)} />
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -397,7 +444,7 @@ export default function ParticipantView({ onViewQueue }: ParticipantViewProps) {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(formatPhone(e.target.value))}
-                placeholder="51 98141-8383"
+                placeholder="51 99999-0000"
                 className="w-full px-4 py-3 bg-slate-800 border border-slate-700 focus:border-green-500 focus:ring-2 focus:ring-green-500/25 rounded-xl text-slate-200 placeholder-slate-600 outline-none transition-all"
               />
             </div>

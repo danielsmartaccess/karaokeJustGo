@@ -27,9 +27,17 @@ comercial do telão entre uma música e outra.
 
 ### Participante (`#/`)
 
-Busca uma versão karaokê (YouTube Data API quando configurada, catálogo de demonstração caso
-contrário), escolhe o vídeo, informa nome e WhatsApp opcional, e envia a solicitação. A
-solicitação nasce **pendente**: quem decide é o Host.
+Abre com **as mais pedidas no karaokê**: um catálogo de 34 músicas com a base de karaokê já
+verificada, filtrável por gênero (sertanejo, pagode e samba, MPB, rock nacional, pop e rock
+internacional). Quem não achar o que quer usa a busca, que consulta a YouTube Data API quando
+configurada e cai no catálogo local caso contrário.
+
+Escolhida a música, o participante informa nome e WhatsApp opcional e envia. A solicitação
+nasce **pendente**: quem decide é o Host.
+
+O catálogo é gerado por `scripts/gen-karaoke-catalog.mjs`, que confere música a música se o
+vídeo existe e toca embutido. Vídeo de karaokê sai do ar com frequência, e uma lista escrita à
+mão apodrece em silêncio até alguém descobrir no meio da noite.
 
 ### Modo Palco (`#/telao`)
 
@@ -41,6 +49,19 @@ apresentação de karaokê, chamada para ação, aviso, publicidade ou QR code d
 Painel com quatro áreas: **Karaokê** (fila, apresentação atual e histórico), **Telão**
 (status, preview e retorno ao karaokê), **Comunicação** (CTAs e avisos) e **Publicidade**
 (campanhas por URL de imagem).
+
+O preview do telão é uma miniatura do que a TV mostra naquele instante, incluindo quem está
+cantando e o telão desligado. Não é ilustração: se divergir da TV, é defeito.
+
+### Chamar o próximo pelo WhatsApp
+
+Na fila e no cartão "A seguir", o Host tem um botão que abre a conversa do participante no
+WhatsApp com a mensagem pronta, faltando apertar enviar. Quem já foi chamado fica marcado com
+o horário, para o Host não repetir a mensagem ao trocar de aparelho.
+
+Não é notificação automática. O envio depende do clique do Host — ver a justificativa em
+[`ARCHITECTURE.md`](./ARCHITECTURE.md). O botão só aparece para quem deixou telefone, já que o
+campo é opcional.
 
 ## Regras de negócio
 
@@ -94,4 +115,5 @@ serviço de geração de karaokê e agente de IA. Nenhuma implementada.
 - Votação da plateia, gamificação e reputação — existiam no produto anterior e foram
   descontinuadas.
 - Download de vídeos.
-- Notificação por WhatsApp. O telefone é coletado, mas ainda não é usado.
+- Notificação automática por WhatsApp. O Host dispara a chamada manualmente; não há envio
+  programado nem confirmação de entrega.

@@ -55,9 +55,13 @@ e não um registro paralelo que pode divergir.
 | `status`                                                          | `karaoke_entry_status` | Ver abaixo                               |
 | `position`                                                        | `integer`              | Ordem na fila                            |
 | `requested_at` · `started_at` · `finished_at`                     | `timestamptz`          | Linha do tempo da solicitação            |
+| `notified_at`                                                     | `timestamptz`          | Quando o Host chamou pelo WhatsApp       |
 
 Os metadados da música são copiados de propósito. Se o vídeo sair do ar, o histórico continua
 contando o que foi cantado naquela noite.
+
+`notified_at` existe pelo mesmo motivo que qualquer estado compartilhado: sem ele, o botão de
+chamar fica idêntico depois do clique e o Host repete a mensagem ao trocar de aparelho.
 
 #### `karaoke_entry_status`
 

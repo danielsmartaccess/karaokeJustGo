@@ -86,6 +86,37 @@ dispositivo calcula os segundos restantes a partir do próprio relógio e do mes
 `screen_expires_at` vindo do banco. Quando o prazo vence, todos voltam ao karaokê sozinhos,
 sem ninguém precisar escrever "acabou" no banco.
 
+## Chamada pelo WhatsApp
+
+`src/lib/whatsapp.ts` monta um link `wa.me` com o telefone normalizado e a mensagem
+codificada. O clique abre o WhatsApp Web no desktop ou o aplicativo no celular, com a conversa
+pronta.
+
+Não é push de verdade, e a escolha é deliberada: push real exigiria a WhatsApp Business API,
+com cadastro de empresa, template aprovado e custo por mensagem. Para avisar quatro pessoas
+por noite, o custo de montagem não se paga.
+
+O preço dessa escolha é que o envio depende do Host apertar enviar. Por isso a ação carimba
+`notified_at` no banco em vez de fingir que a mensagem saiu: numa casa cheia, com o Host
+alternando entre notebook e tablet, o botão precisa contar quem já foi chamado.
+
+A normalização recusa o que não parece telefone brasileiro em vez de tentar adivinhar. Abrir
+conversa com o número errado é pior do que não oferecer o botão.
+
+## Catálogo de karaokê
+
+`src/data/karaokeCatalog.ts` é **gerado**, não escrito à mão, por
+`scripts/gen-karaoke-catalog.mjs`. O script busca a versão karaokê de cada música de uma
+curadoria, e para cada candidato confere duas coisas: que o vídeo existe e é público (oEmbed) e
+que ele toca embutido (a página `/embed`, o mesmo caminho que o telão usa).
+
+A segunda checagem é a que importa. O oEmbed responde 200 até para vídeo que bloqueia
+incorporação, então validar só por ele deixaria passar vídeo que aparece na lista e falha na
+TV.
+
+Regerar antes de um evento é barato e evita a falha mais constrangedora possível: o
+participante escolhe, o telão abre e o vídeo não existe mais.
+
 ## Decisões e trocas
 
 - **Reducer puro separado do provider.** `src/store/reducer.ts` não importa React. É onde as
@@ -96,6 +127,8 @@ sem ninguém precisar escrever "acabou" no banco.
 - **Snapshot inteiro a cada mudança.** Mais simples e previsível que aplicar deltas do
   Realtime. Para a escala de uma noite de bar, o custo é irrelevante.
 - **Escrita anônima no banco.** Consequência do Host sem senha. Ver [`SECURITY.md`](./SECURITY.md).
+- **Catálogo gerado, não curado à mão.** Uma lista fixa de ids de vídeo apodrece sem avisar.
+- **WhatsApp por link, não por API.** Ver acima.
 
 ## Estrutura de arquivos
 
@@ -108,11 +141,14 @@ src/
     Logo.tsx                   marca oficial, servida de public/
     SearchBar · SongCard · HistoryTable · EmptyState · ErrorMessage · QRCodeDisplay
     ui/                        Button · Badge · Modal
-  data/mockData.ts             catálogo e presets do modo demo
+  data/
+    karaokeCatalog.ts          GERADO — catálogo verificado de karaokê
+    mockData.ts                fila e presets do modo demo
   lib/
     supabase.ts                cliente e detecção de modo
     database.types.ts          tipos gerados do schema
     urls.ts                    rotas e URL do QR code
+    whatsapp.ts                link de chamada do próximo cantor
   services/
     karaokeRepository.ts       Postgres <-> domínio + realtime
     youtubeSearch.ts           YouTube Data API com fallback local

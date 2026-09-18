@@ -48,6 +48,7 @@ function rowToEntry(row: KaraokeQueueEntryRow): QueueEntry {
     requestedAt: hhmm(row.requested_at),
     startedAt: row.started_at ? hhmm(row.started_at) : undefined,
     finishedAt: row.finished_at ? hhmm(row.finished_at) : undefined,
+    notifiedAt: row.notified_at ? hhmm(row.notified_at) : undefined,
     status: row.status,
   };
 }
@@ -266,6 +267,14 @@ export async function applyAction(
           finished_at: now,
         })
         .eq('id', state.currentPlaying.id);
+      return;
+    }
+
+    case 'MARK_NOTIFIED': {
+      await supabase
+        .from('karaoke_queue_entries')
+        .update({ notified_at: now })
+        .eq('id', action.entryId);
       return;
     }
 

@@ -156,6 +156,16 @@ export function reducer(state: KaraokeSnapshot, action: KaraokeAction): KaraokeS
       return { ...state, queue: updatePositions(q) };
     }
 
+    case 'MARK_NOTIFIED': {
+      const stamp = nowTime();
+      const marcar = (e: QueueEntry) => (e.id === action.entryId ? { ...e, notifiedAt: stamp } : e);
+      return {
+        ...state,
+        queue: state.queue.map(marcar),
+        pendingQueue: state.pendingQueue.map(marcar),
+      };
+    }
+
     // --- Telão ---
     case 'SET_TELAO_CONTENT': {
       const expiresAt = action.content.duration

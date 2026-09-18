@@ -50,6 +50,7 @@ export type Database = {
         Row: {
           finished_at: string | null;
           id: string;
+          notified_at: string | null;
           participant: string;
           phone: string | null;
           position: number;
@@ -66,6 +67,7 @@ export type Database = {
         Insert: {
           finished_at?: string | null;
           id?: string;
+          notified_at?: string | null;
           participant: string;
           phone?: string | null;
           position?: number;
@@ -82,6 +84,7 @@ export type Database = {
         Update: {
           finished_at?: string | null;
           id?: string;
+          notified_at?: string | null;
           participant?: string;
           phone?: string | null;
           position?: number;

@@ -5,17 +5,24 @@ interface QRCodeDisplayProps {
   url: string;
   label?: string;
   size?: number;
-  dark?: boolean;
+  /**
+   * Mostra o endereço escrito abaixo do código.
+   *
+   * Desligado por padrão: no telão, a TV fica a metros de distância e ninguém
+   * digita uma URL longa olhando de longe — o texto só rouba espaço do código,
+   * que é o que realmente funciona ali.
+   */
+  showUrl?: boolean;
 }
 
 export default function QRCodeDisplay({
   url,
   label = 'Escaneie para participar',
   size = 220,
-  dark = false,
+  showUrl = false,
 }: QRCodeDisplayProps) {
   return (
-    <div className={`flex flex-col items-center gap-6 ${dark ? '' : ''}`}>
+    <div className="flex flex-col items-center gap-6">
       <div
         className="bg-white p-4 rounded-2xl shadow-2xl"
         style={{ boxShadow: '0 0 40px rgba(0,212,224,0.3), 0 0 80px rgba(233,30,140,0.15)' }}
@@ -29,15 +36,17 @@ export default function QRCodeDisplay({
           bgColor="#ffffff"
         />
       </div>
-      <div className="text-center">
-        <p className="text-slate-300 text-sm font-medium mb-1">{label}</p>
-        <p className="text-slate-600 font-mono text-xs break-all max-w-xs">{url}</p>
-      </div>
+      {(label || showUrl) && (
+        <div className="text-center">
+          {label && <p className="text-slate-300 text-sm font-medium mb-1">{label}</p>}
+          {showUrl && <p className="text-slate-600 font-mono text-xs break-all max-w-xs">{url}</p>}
+        </div>
+      )}
     </div>
   );
 }
 
-// Full telão view for the QR code
+/** Telão inteiro dedicado ao QR code de entrada. */
 export function QRCodeTelaoMode({ url }: { url: string }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-10 bg-[#06000e] px-8">
@@ -52,16 +61,10 @@ export function QRCodeTelaoMode({ url }: { url: string }) {
         </h1>
       </div>
 
-      <QRCodeDisplay url={url} size={260} />
-
-      <div className="flex items-center gap-4 text-slate-600 text-sm">
-        <div className="h-px bg-slate-800 w-16" />
-        <span className="font-mono text-xs tracking-wider">ou acesse o link acima</span>
-        <div className="h-px bg-slate-800 w-16" />
-      </div>
+      <QRCodeDisplay url={url} size={260} label="" />
 
       <div className="text-xs font-mono text-slate-700 tracking-[0.3em] uppercase">
-        Bar & Karaokê Just Go — Smart Access
+        Bar &amp; Karaokê Just Go — Smart Access
       </div>
     </div>
   );

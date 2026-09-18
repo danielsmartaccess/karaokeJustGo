@@ -33,6 +33,8 @@ export interface QueueEntry {
   requestedAt: string;
   startedAt?: string;
   finishedAt?: string;
+  /** Quando o Host chamou o participante pelo WhatsApp. */
+  notifiedAt?: string;
   status: QueueStatus;
 }
 

@@ -1,4 +1,4 @@
-import { MOCK_SONGS } from '../data/mockData';
+import { KARAOKE_CATALOG } from '../data/karaokeCatalog';
 
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined;
 
@@ -20,6 +20,15 @@ export interface YouTubeResult {
   title: string;
   channelTitle: string;
   thumbnail: string;
+}
+
+/** Normaliza para comparar sem acento — ninguem digita "Evidencias" com acento no celular. */
+function semAcento(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 export async function searchKaraoke(
@@ -48,19 +57,20 @@ export async function searchKaraoke(
     }
   }
 
-  // Mock fallback — simulates YouTube karaoke results from local catalog
-  const q = query.toLowerCase().trim();
+  // Sem chave da API, a busca cai no catalogo local verificado. Nao e um
+  // placeholder: sao versoes karaoke reais, entao a demonstracao toca de fato.
+  const q = semAcento(query);
   const filtered = q
-    ? MOCK_SONGS.filter(
-        (s) => s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q),
+    ? KARAOKE_CATALOG.filter(
+        (s) => semAcento(s.title).includes(q) || semAcento(s.artist).includes(q),
       )
-    : MOCK_SONGS;
+    : KARAOKE_CATALOG;
 
   const results: YouTubeResult[] = filtered.map((s) => ({
     youtubeId: s.youtubeId,
     title: `${s.title} — Karaokê`,
-    channelTitle: s.artist,
-    thumbnail: `https://img.youtube.com/vi/${s.youtubeId}/mqdefault.jpg`,
+    channelTitle: s.channel || s.artist,
+    thumbnail: s.thumbnail,
   }));
 
   return { results, isMock: true };

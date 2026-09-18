@@ -22,6 +22,7 @@ export type KaraokeAction =
   | { type: 'CANCEL_ENTRY'; entryId: string }
   | { type: 'MOVE_UP'; entryId: string }
   | { type: 'MOVE_DOWN'; entryId: string }
+  | { type: 'MARK_NOTIFIED'; entryId: string }
   // --- Telão ---
   | { type: 'SET_TELAO_CONTENT'; content: ScreenContent }
   | { type: 'CLEAR_TELAO_CONTENT' }

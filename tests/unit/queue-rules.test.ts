@@ -133,4 +133,26 @@ describe('fila', () => {
     expect(up.queue.map((e) => e.participant)).toEqual(['Ana', 'Carlos']);
     expect(down.queue.map((e) => e.participant)).toEqual(['Ana', 'Carlos']);
   });
+
+  it('marca quem ja foi chamado no WhatsApp, para o Host nao repetir', () => {
+    const state = withQueue(['Ana', 'Carlos']);
+    const marcado = reducer(state, { type: 'MARK_NOTIFIED', entryId: state.queue[0].id });
+
+    expect(marcado.queue[0].notifiedAt).toBeTruthy();
+    expect(marcado.queue[1].notifiedAt).toBeUndefined();
+  });
+
+  it('marca tambem quem ainda esta aguardando aprovacao', () => {
+    const proposto = reducer(emptyState, {
+      type: 'PROPOSE_SONG',
+      participant: 'Ana',
+      song: song('Evidencias'),
+    });
+    const marcado = reducer(proposto, {
+      type: 'MARK_NOTIFIED',
+      entryId: proposto.pendingQueue[0].id,
+    });
+
+    expect(marcado.pendingQueue[0].notifiedAt).toBeTruthy();
+  });
 });

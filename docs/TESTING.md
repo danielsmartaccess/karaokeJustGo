@@ -36,6 +36,10 @@ Casos que existem porque quebraram de verdade:
   milissegundo, fazendo as ações atingirem a entrada errada.
 - **"conta o tempo restante a partir do relógio"** protege a convergência do telão entre
   dispositivos. Se alguém trocar por um decremento simples, o teste cai.
+- **"recusa 13 dígitos com DDI de outro país"** evita o pior caso da chamada por WhatsApp:
+  abrir conversa com alguém que não é o participante.
+- **"todas as músicas da demonstração existem no catálogo"** acusa quando uma regeração
+  derruba uma música, antes de a demonstração cair no fallback na frente de uma turma.
 
 ### E2E — `tests/e2e/smoke.spec.ts`
 
@@ -60,12 +64,33 @@ sai da aba. Se rodar contra o banco, limpe depois:
 delete from public.karaoke_queue_entries where participant = 'Teste E2E';
 ```
 
+## Verificação de sincronia entre dispositivos
+
+Os testes do Playwright abrem uma tela por vez. A promessa central do produto — o que acontece
+num aparelho aparecer nos outros — só dá para verificar com os três abertos ao mesmo tempo.
+
+```bash
+npm run build && npm run preview     # num terminal
+node scripts/verifica-sincronia.mjs  # noutro
+```
+
+O script abre participante, Host e telão em paralelo e confere doze pontos: a solicitação
+chegando ao Host, o botão de WhatsApp montando o link com DDI, a marcação de "já chamado", o
+preview do Host batendo com a TV, o CTA aparecendo nos dois, e o telão em modo QR sem texto
+sobrando.
+
+Exige Supabase configurado. Em modo demo cada aba tem o seu próprio estado, então o resultado
+não significaria nada. **Escreve na sala real** — o script avisa ao final como limpar.
+
+Vale rodar antes de um evento, junto com o checklist de [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+
 ## O que ainda não é testado
 
 - A camada `services/karaokeRepository.ts` não tem teste próprio. A tradução domínio ⇄ Postgres
-  é exercitada indiretamente pelo E2E quando o Supabase está configurado.
-- Sincronização entre dois dispositivos simultâneos. Exigiria dois contextos de browser no
-  mesmo teste — vale a pena quando o realtime ganhar mais regras.
+  é exercitada pelo E2E e pelo script de sincronia quando o Supabase está configurado.
+- Se os vídeos do catálogo continuam no ar. Exigiria rede e deixaria a suíte instável — a
+  verificação está no gerador (`node scripts/gen-karaoke-catalog.mjs --dry`).
+- O envio da mensagem no WhatsApp em si, que depende do aplicativo e do clique do Host.
 - Acessibilidade e contraste do modo palco.
 
 ## CI

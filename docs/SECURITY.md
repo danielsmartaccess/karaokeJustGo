@@ -63,7 +63,7 @@ com o aviso correspondente, para que ninguém leia como descuido.
 | Acesso não autorizado ao painel do Host          | Médio   | URL não divulgada; telão à vista             |
 | Escrita anônima na fila (spam de solicitações)   | Baixo   | Toda entrada passa pela aprovação do Host    |
 | Publicidade com URL de imagem arbitrária         | Médio   | Só o Host publica; preview antes de ir ao ar |
-| Telefone do participante legível por qualquer um | Médio   | Campo opcional; ainda não é usado            |
+| Telefone do participante legível por qualquer um | Alto    | Campo opcional; nenhuma mitigação hoje       |
 
 O terceiro item merece atenção: o telão renderiza qualquer URL de imagem que o Host colar. Não
 há validação de domínio nem de conteúdo. O preview antes de publicar é a defesa, e ela depende
@@ -79,16 +79,24 @@ de quem opera.
 5. Validar `image_url` contra uma lista de domínios permitidos ou subir a imagem para o
    Supabase Storage em vez de aceitar URL externa.
 6. Tratar o telefone como dado pessoal sob a LGPD: consentimento explícito, finalidade
-   declarada e prazo de retenção.
+   declarada e prazo de retenção. Restringir a leitura de `phone` ao Host autenticado é a
+   mudança de maior impacto da lista.
 
 ## LGPD
 
 Dados pessoais coletados hoje: **nome ou apelido** (obrigatório) e **telefone WhatsApp**
 (opcional). Não há e-mail, documento nem dado de pagamento.
 
-O telefone é coletado para avisar o participante que a vez dele chegou, mas essa funcionalidade
-ainda não existe. Enquanto não existir, o campo coleta um dado pessoal sem uso — vale remover
-o campo ou implementar a notificação antes da próxima operação real.
+O telefone passou a ter uso: o Host chama o participante pelo WhatsApp quando a vez dele
+chega. Isso resolve a coleta sem finalidade, mas cria obrigações novas:
+
+- **Consentimento.** O campo é opcional e o rótulo diz "Celular WhatsApp". Falta declarar
+  na própria tela para que o número será usado.
+- **Retenção.** O número fica em `karaoke_queue_entries` indefinidamente. Não há expurgo
+  automático depois da noite.
+- **Visibilidade.** Como a leitura é anônima, qualquer pessoa com a URL consegue ler os
+  telefones da fila pela API. É a consequência mais séria da postura de RLS permissiva, e o
+  primeiro item a endereçar na migração para Supabase Auth.
 
 ## Reportar um problema
 
