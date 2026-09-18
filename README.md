@@ -1,145 +1,98 @@
-# 🎤 Just Go Karaoke
+# 🎤 Karaokê Just Go
 
-Plataforma de **experiência social** para karaokê, desenvolvida pela **Just Go Smart Access**.
-Primeiro ambiente piloto: **Armazém Anita** (Porto Alegre/RS).
+Plataforma de entretenimento para bares, da **Just Go Smart Access**.
 
-> O karaokê é o contexto. A experiência social é o produto.
-> _Pertencimento + Participação + Reconhecimento + Diversão._
+Não é um tocador de músicas com fila. O telão vira canal de comunicação entre a casa e o
+público, e o Host comanda a noite inteira de um painel só.
 
-O produto é composto por três experiências que se sincronizam em tempo real:
+**Produção:** <https://danielsmartaccess.github.io/karaokeJustGo/>
 
-| Experiência     | Público        | Formato          |
-| --------------- | -------------- | ---------------- |
-| **Participante**| quem canta/vota| PWA mobile-first |
-| **Host**        | operador       | PWA admin        |
-| **Telão**       | plateia        | Web pública      |
+## As três telas
 
----
+| Quem             | Rota      | O que faz                                                         |
+| ---------------- | --------- | ----------------------------------------------------------------- |
+| **Participante** | `#/`      | Busca a versão karaokê, informa o nome e pede para entrar na fila |
+| **Modo Palco**   | `#/telao` | Apresentação, chamadas, avisos, publicidade e QR code de entrada  |
+| **Host**         | `#/host`  | Aprova a fila, conduz as apresentações e comanda o telão          |
 
-## 🧱 Stack
+As três abrem a mesma aplicação em dispositivos diferentes e compartilham o mesmo estado via
+Supabase Realtime.
 
-- **Frontend:** React 18 + TypeScript (strict) + Vite 6 + Tailwind CSS v4 + shadcn/ui + PWA
-- **Backend / BaaS:** Supabase — PostgreSQL, Auth, Realtime (Presence + Broadcast), Storage, Edge Functions
-- **Testes:** Vitest (unit) + Playwright (E2E)
-- **CI/CD:** GitHub Actions → GitHub Pages
-
-> Neste MVP **não** usamos Next.js nem Vercel.
-
----
-
-## 📁 Estrutura
-
-```
-src/
-├── app/         # rotas das 3 experiências (participant / host / display)
-├── domain/      # ⭐ regras de negócio PURAS e testáveis (sem React)
-│   ├── voting/          # elegibilidade, janela 60s, médias, percentuais
-│   ├── performance/     # máquina de estados da apresentação
-│   ├── gamification/    # XP (fama e badges nas próximas fatias)
-│   └── session/         # máquina de estados da sessão (FASE 3)
-├── assets/      # imagens da marca (glifo "Go" extraído do logo oficial)
-├── data/        # camada Supabase — identity.ts, sessions.ts (FASE 3)
-├── ui/          # design system Just Go (tokens + componentes)
-├── lib/         # utilitários (cn, cliente Supabase)
-└── hooks/
-supabase/migrations/   # schema versionado (banco reconstruível) — FASE 2
-tests/unit/  ·  tests/e2e/
-docs/        # PRODUCT · ARCHITECTURE · DATABASE · SECURITY · TESTING · DEPLOYMENT
-```
-
-**Princípio central:** o domínio (`src/domain/`) é isolado do React. Fórmulas de voto, XP e
-transições de estado vivem em funções puras testáveis — nunca dentro de JSX.
-
----
-
-## 🚀 Começando
-
-Pré-requisitos: **Node 22+** e **npm 10+**.
+## Começando
 
 ```bash
-git clone https://github.com/danielsmartaccess/karaokeJustGo.git
-cd karaokeJustGo
 npm install
-cp .env.example .env   # preencha as variáveis do Supabase (ver abaixo)
-npm run dev            # http://localhost:5173/karaokeJustGo/
+cp .env.example .env    # preencha as variáveis do Supabase
+npm run dev
 ```
 
-### Variáveis de ambiente
+Sem as variáveis do Supabase o app roda em **modo demo**: estado só na memória da aba, com
+dados de demonstração. Serve para aula e desenvolvimento offline — mas nada é compartilhado
+entre dispositivos.
 
-Apenas variáveis com prefixo `VITE_` são expostas ao frontend. **Nunca** coloque a
-`service_role` key no frontend.
+### Variáveis
 
-| Variável                 | Descrição                              |
-| ------------------------ | -------------------------------------- |
-| `VITE_SUPABASE_URL`      | URL do projeto Supabase                |
-| `VITE_SUPABASE_ANON_KEY` | Chave pública (anon/publishable)       |
+| Variável                 | Obrigatória | Para quê                                       |
+| ------------------------ | ----------- | ---------------------------------------------- |
+| `VITE_SUPABASE_URL`      | Sim\*       | Backend                                        |
+| `VITE_SUPABASE_ANON_KEY` | Sim\*       | Chave publicável, nunca a `service_role`       |
+| `VITE_KARAOKE_ROOM_SLUG` | Não         | Sala desta implantação. Padrão `just-go`       |
+| `VITE_YOUTUBE_API_KEY`   | Não         | Busca real no YouTube; sem ela, catálogo local |
 
-`VITE_DEFAULT_VENUE_SLUG` define o venue desta implantação (ex.: `armazem-anita`) — nunca
-hardcode o id do venue no código (docs/PRODUCT.md).
+\* Ausentes, o app cai em modo demo em vez de falhar.
 
-> Sem Supabase configurado o app roda em modo demo nas telas que ainda não dependem dele.
-> A partir da FASE 3, `/join` e `/host` exigem Supabase configurado e **Anonymous Sign-ins**
-> habilitado no projeto (Authentication → Sign In / Providers → Anonymous).
-
----
-
-## 🧪 Scripts
-
-| Comando             | O que faz                                    |
-| ------------------- | -------------------------------------------- |
-| `npm run dev`       | Servidor de desenvolvimento                  |
-| `npm run build`     | Type-check + build de produção               |
-| `npm run preview`   | Serve o build localmente                     |
-| `npm run lint`      | ESLint                                        |
-| `npm run test`      | Testes unitários (Vitest)                    |
-| `npm run test:e2e`  | Testes E2E (Playwright)                      |
-| `npm run typecheck` | Verificação de tipos                          |
-
-**Antes de considerar qualquer feature pronta** (seção 45 do prompt mestre):
+## Comandos
 
 ```bash
-npm run lint && npm run test && npm run build
+npm run dev         # servidor de desenvolvimento
+npm run build       # typecheck + build de produção
+npm run preview     # serve o build local
+npm run lint        # ESLint
+npm run typecheck   # TypeScript
+npm run test        # testes unitários (Vitest)
+npm run test:e2e    # E2E (Playwright)
+npm run format      # Prettier
 ```
 
+> `npm run test:e2e` roda contra o build. Se o `.env` tiver Supabase, os testes **escrevem no
+> banco real**. Ver [`docs/TESTING.md`](docs/TESTING.md).
+
+## Stack
+
+React 18 · TypeScript · Vite 6 · Tailwind CSS v4 · Supabase (PostgreSQL + Realtime) ·
+lucide-react · qrcode.react · PWA · GitHub Pages
+
+## Como o estado funciona
+
+Componente despacha uma ação → o reducer aplica na hora (a interface responde sem esperar a
+rede) → o repositório persiste no Postgres → o Realtime avisa todos os dispositivos → cada um
+recarrega o snapshot.
+
+O reducer é uma função pura em [`src/store/reducer.ts`](src/store/reducer.ts). É onde vivem as
+regras de negócio e onde os testes batem. Componente visual não conhece o Supabase.
+
+## Documentação
+
+| Documento                            | Assunto                                          |
+| ------------------------------------ | ------------------------------------------------ |
+| [PRODUCT](docs/PRODUCT.md)           | Visão, atores, regras de negócio, estados        |
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | Camadas, fluxo de ação, decisões e trocas        |
+| [DATABASE](docs/DATABASE.md)         | Schema, enums, RLS, realtime, legado             |
+| [SECURITY](docs/SECURITY.md)         | Host sem senha, riscos aceitos, caminho de saída |
+| [TESTING](docs/TESTING.md)           | O que é testado e por quê                        |
+| [DEPLOYMENT](docs/DEPLOYMENT.md)     | CI, variáveis, migrations, checklist da noite    |
+
+## Estado do projeto
+
+MVP em produção. O Host entra **sem senha** por decisão de produto, e o banco aceita escrita
+anônima como consequência. Leia [`docs/SECURITY.md`](docs/SECURITY.md) antes de abrir o
+produto para mais de um estabelecimento.
+
+O banco ainda guarda as tabelas do produto anterior (sessões, votação, gamificação), sem uso
+pelo código atual. A remoção está preparada em
+[`supabase/scripts/drop-legacy-schema.sql`](supabase/scripts/drop-legacy-schema.sql) e é
+manual, porque há dados reais lá.
+
 ---
 
-## 🚢 Deploy
-
-`git push` na branch `main` dispara o GitHub Actions que executa **lint → test → build →
-deploy no GitHub Pages**. O build não publica se lint/testes/build falharem.
-
-- Base path configurado: `/karaokeJustGo/` (`vite.config.ts`)
-- SPA fallback: `404.html` gerado no deploy (rotas do React Router funcionam em deep-links)
-- Secrets do Pages: configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no repositório
-
-Detalhes em [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
-
----
-
-## 🗺️ Roadmap (fatias verticais)
-
-| Fase | Entrega                                             | Status |
-| ---- | --------------------------------------------------- | ------ |
-| 0    | Diagnóstico                                         | ✅     |
-| 1    | Foundation (scaffold, domínio, CI, Pages)           | ✅     |
-| 2    | Supabase (migrations, schema, RLS, Auth, seed)      | ✅     |
-| 3    | Sessão (venue, session, código/QR, cadastro mínimo) | ✅     |
-| 4    | Músicas (catálogo) — _substituída pela FASE 10_     | ↩️     |
-| 5    | Fila (entrar/sair, fila do host)                    | ✅     |
-| 6    | Apresentação (chamar/cantar, telão, Realtime)       | ✅     |
-| 7    | Votação (janela 60s, categorias, resultado)         | ✅     |
-| 8    | Gamificação (XP, badges, ranking)                   | ✅     |
-| 9    | Premiação (Performance da Noite)                    | ✅     |
-| 10   | Mídia (texto livre, vídeo do YouTube no telão, DJ)  | ✅     |
-| 11   | Polimento · E2E · Deploy                            | ⏳     |
-
----
-
-## 📚 Documentação
-
-[PRODUCT](docs/PRODUCT.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DATABASE](docs/DATABASE.md) ·
-[SECURITY](docs/SECURITY.md) · [TESTING](docs/TESTING.md) · [DEPLOYMENT](docs/DEPLOYMENT.md)
-
----
-
-© Just Go Smart Access — todos os direitos reservados.
+© Just Go Smart Access

@@ -1,58 +1,91 @@
-# DEPLOYMENT — Just Go Karaoke
+# DEPLOYMENT — Karaokê Just Go
 
-## Frontend → GitHub Pages (via GitHub Actions)
+- **Produção:** <https://danielsmartaccess.github.io/karaokeJustGo/>
+- **Backend:** projeto Supabase `just-go-karaoke` (`sa-east-1`)
 
-O workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) roda em push/PR para
-`main`:
+## Como o deploy acontece
+
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) roda em todo push e PR para `main`:
 
 1. `npm ci`
 2. `npm run lint`
 3. `npm run test`
-4. `npm run build` (com secrets do Supabase)
-5. `cp dist/index.html dist/404.html` (SPA fallback)
-6. Deploy no GitHub Pages (apenas em `main`)
+4. `npm run build` — com as variáveis injetadas dos GitHub Secrets/Variables
+5. Copia `dist/index.html` para `dist/404.html` (fallback de SPA)
+6. Em `main`, publica `dist/` no GitHub Pages
 
-O deploy **não ocorre** se lint, testes ou build falharem.
+Não há passo manual. Merge em `main` é o deploy.
 
-### Configuração única no repositório
+## Variáveis necessárias
 
-1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
-   (via API: `gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`)
-2. **Settings → Secrets and variables → Actions**, adicionar dois _secrets_:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY` (é a _publishable key_ — pode ir para o bundle)
-3. Na aba **Variables** do mesmo lugar, adicionar uma _variable_:
-   - `VITE_DEFAULT_VENUE_SLUG` (ex.: `armazem-anita`) — o app **lança erro** em runtime sem ela.
+Em **Settings → Secrets and variables → Actions**:
 
-### Base path e SPA
+| Nome                     | Tipo     | Valor                                      |
+| ------------------------ | -------- | ------------------------------------------ |
+| `VITE_SUPABASE_URL`      | Secret   | `https://ghtltnxrmskllagitiap.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Secret   | Chave publicável (nunca a `service_role`)  |
+| `VITE_KARAOKE_ROOM_SLUG` | Variable | `just-go`                                  |
 
-- `vite.config.ts` define `base: '/karaokeJustGo/'` (precisa bater com o nome do repositório).
-- Deep-links (ex.: `/karaokeJustGo/host`) funcionam porque o `404.html` (cópia do `index.html`)
-  reinicializa o SPA e o React Router resolve a rota no cliente.
-- URL de produção: `https://danielsmartaccess.github.io/karaokeJustGo/`.
+> Se `VITE_KARAOKE_ROOM_SLUG` não estiver definida, o app usa `just-go` como padrão.
+> Se as duas primeiras faltarem, o build sai em **modo demo** e nada é compartilhado entre
+> dispositivos. É o sintoma a checar primeiro se a fila não aparece na TV.
 
-## Backend → Supabase
+## Base path
 
-- Schema versionado em `supabase/migrations/` (FASE 2). O banco é reconstruível via migrations.
-- Edge Functions em `supabase/functions/` quando necessário.
-- Projeto Supabase criado via MCP na FASE 2 (decisão de 2026-08-15).
+O Vite publica em `/karaokeJustGo/`, definido em [`vite.config.ts`](../vite.config.ts). O
+nome precisa bater com o do repositório. Se o repositório for renomeado, atualize `BASE` no
+Vite, o `href` do favicon em `index.html` e o `BASE_PATH` do
+[`playwright.config.ts`](../playwright.config.ts).
 
-### Configuração única no projeto Supabase (FASE 3)
+O roteamento é por hash, então as rotas internas não dependem de reescrita no servidor. O
+`404.html` cobre apenas um acesso direto a um caminho inexistente.
 
-1. **Authentication → Sign In / Providers → Anonymous** → habilitar. Necessário para
-   `/join` (participante) e `/host` — ambos usam Supabase Anonymous Auth (docs/SECURITY.md).
-   Sem isso, essas telas mostram erro `Anonymous sign-ins are disabled`.
-2. **Bootstrap do primeiro host:** abra `/host` uma vez autenticado (cria o profile
-   anônimo automaticamente), copie o id de perfil mostrado na tela de "sem permissão" e
-   insira uma linha em `venue_staff` (`role = 'ADMIN'`) para esse `profile_id` no venue —
-   via migration ou MCP. Não existe UI de auto-promoção (por design, é um ato de confiança
-   explícito).
+## Migrations do banco
 
-## Checklist de release
+O schema é versionado em `supabase/migrations/`. O CI **não** aplica migrations — o deploy do
+frontend e a evolução do banco são passos separados, de propósito, para que uma mudança de
+schema nunca entre no ar sem alguém olhar.
+
+Para aplicar:
 
 ```bash
-npm run lint && npm run test && npm run build
-npm run test:e2e   # quando aplicável
+npx supabase link --project-ref ghtltnxrmskllagitiap
+npx supabase db push
 ```
 
-Depois: `git push origin main` → acompanhar o Actions → validar a URL de produção.
+Ou cole o SQL no SQL Editor do projeto. Depois, regenere os tipos:
+
+```bash
+npx supabase gen types typescript --project-id ghtltnxrmskllagitiap > src/lib/database.types.ts
+```
+
+## Checklist antes de uma noite de operação
+
+1. Abrir <https://danielsmartaccess.github.io/karaokeJustGo/#/host> e confirmar que o
+   cabeçalho mostra **Ao vivo**. Se mostrar _Modo demo_, as variáveis do build estão faltando.
+2. Abrir o telão na TV em `#/telao` e deixar em tela cheia.
+3. Publicar o QR code no telão pela aba **Telão** do painel.
+4. Escanear o QR com um celular e confirmar que a solicitação chega como pendente no painel.
+5. Conferir que o telão está **ONLINE** no cartão de status.
+
+Os passos 4 e 5 juntos provam que o realtime está funcionando entre os três dispositivos. É o
+teste que vale a pena fazer antes de abrir a casa.
+
+## Rollback
+
+O GitHub Pages guarda o histórico de deploys. Para voltar, reverta o commit em `main` — o
+workflow republica sozinho.
+
+```bash
+git revert <sha>
+git push
+```
+
+Reverter o frontend **não** reverte migrations já aplicadas. Mudanças de schema precisam de
+migration de compensação própria.
+
+## Modo demo como plano B
+
+Se o Supabase cair no meio da noite, o app continua carregando, mas sem estado compartilhado.
+Não existe hoje um modo offline que sincronize depois. Na prática, a operação vira manual até
+o backend voltar.

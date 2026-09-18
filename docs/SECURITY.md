@@ -1,86 +1,96 @@
-# SECURITY — Just Go Karaoke
+# SECURITY — Karaokê Just Go
 
-## Princípios
+## Postura atual, em uma frase
 
-- **Nunca confiar apenas no frontend.** Regras sensíveis são validadas no backend (RLS +
-  Edge Functions). `if (role === 'ADMIN')` no cliente é UX, não segurança.
-- **Somente a `anon` (publishable) key** existe no frontend. A `service_role` key, secrets,
-  credenciais e tokens privados **nunca** vão para o cliente nem para o repositório.
-- Apenas variáveis com prefixo `VITE_` são expostas ao build.
+Este MVP opera **sem autenticação**, por decisão de produto, e o banco aceita leitura e
+escrita anônimas nas tabelas `karaoke_*`. Isso é aceitável enquanto a operação é de um bar só,
+com link não divulgado, e deixa de ser no momento em que o produto atender mais de um
+estabelecimento.
 
-## Autenticação (FASE 3)
+## A decisão do Host sem senha
 
-Identidade via **Supabase Anonymous Auth** — sem senha, cadastro é só nome + WhatsApp
-(seção 32). Mesmo mecanismo para participante e host: o papel HOST/ADMIN vem de uma linha
-em `venue_staff`, não do método de login. Requer "Anonymous Sign-ins" habilitado no projeto
-(Authentication → Sign In / Providers → Anonymous) — ver docs/DEPLOYMENT.md.
+O Host conduz a noite. Ele precisa assumir o painel em segundos, às vezes num aparelho
+emprestado, no meio de um salão barulhento. Uma tela de login com senha, recuperação e
+sessão expirada atrapalha exatamente no momento em que o sistema mais precisa sair da frente.
 
-Consequência aceita nesta fase: uma conta anônima é presa ao navegador/dispositivo (sem
-recuperação se limpar dados). Upgrade para credencial permanente (vincular e-mail) fica para
-uma fase de polimento, quando fizer sentido para contas de HOST/ADMIN de longa duração.
+Então `#/host` pede só o nome, guarda em `localStorage` e entra. O nome é identificação
+operacional — quem está conduzindo —, não credencial.
 
-## Exposição pública de nome (FASE 5)
+**O que isso significa na prática:** qualquer pessoa que descubra a URL pode abrir o painel do
+Host, aprovar ou cancelar solicitações e publicar conteúdo no telão.
 
-`profiles` é restrito ao dono (`auth.uid() = id`). Mas a fila precisa mostrar **quem** está
-cantando para os outros participantes — puro produto social (docs/PRODUCT.md, "eu faço
-parte"). Solução: view `public.public_profiles` (`id`, `display_name`, `avatar_url` — nunca
-`whatsapp`) com `security_invoker = false`, que intencionalmente contorna a RLS self-only da
-tabela base só para essas 3 colunas não-sensíveis. `get_advisors` marca isso como
-`security_definer_view` (ERROR) — **revisado e aceito**: é a forma correta e auditável de
-fazer projeção pública parcial no Postgres; a alternativa (grants por coluna) é mais difícil
-de auditar, não mais segura. `whatsapp` nunca é exposto via esta view nem em nenhuma rota.
+**Por que é tolerável hoje:** o público-alvo é um bar; o link do Host não é divulgado; o telão
+fica à vista de todos, então um uso indevido é percebido na hora; e o dano máximo é uma noite
+bagunçada, não vazamento de dado sensível ou prejuízo financeiro.
 
-## Row Level Security
+**Quando deixa de ser:** múltiplos estabelecimentos, cobrança por uso, ou qualquer dado que
+não possa ser visto pelo salão inteiro.
 
-RLS habilitado em todas as tabelas. Políticas coerentes com multi-tenancy: um usuário de um
-tenant não acessa dados privados de outro tenant.
+## Consequência no banco
 
-## Votação — superfícies de ataque (seções 19, 35)
+Como participante e Host chegam pela mesma role `anon`, as políticas RLS são permissivas:
 
-Validação obrigatória **no backend**:
+```sql
+create policy karaoke_queue_entries_anon_all
+  on public.karaoke_queue_entries
+  for all to anon, authenticated
+  using (true) with check (true);
+```
 
-- ❌ auto-votação (votante = cantor)
-- ❌ voto duplicado na mesma apresentação
-- ❌ voto fora da janela de 60s
-- ❌ voto após o encerramento
-- ✅ votante presente/online na sessão
-- ✅ payload validado (notas inteiras 1–5)
+O mesmo vale para `karaoke_rooms`, `karaoke_screen_contents` e `karaoke_advertisements`.
 
-As mesmas regras existem em `src/domain/voting/rules.ts` para guiar a UI, mas a fonte de
-verdade é o trigger `validate_vote` no servidor (FASE 7) — testado ao vivo: auto-voto é
-bloqueado na UI antes mesmo de tentar, duplicado e fora da janela são rejeitados pelo
-trigger, resultado agregado nunca expõe voto individual (view `performance_results`).
+Isso está escrito na migration
+[`20260918120000_karaoke_rooms.sql`](../supabase/migrations/20260918120000_karaoke_rooms.sql)
+com o aviso correspondente, para que ninguém leia como descuido.
 
-**"Presente/online" — simplificação deliberada:** "presente" hoje significa "tem uma
-linha em `session_participants`" (já completou o cadastro nesta sessão), não presença
-efêmera via WebSocket. Um trigger SQL não consegue consultar o estado de um canal
-Realtime Presence — isso vive só na memória do servidor Realtime, não no Postgres.
-Implementar presença "de verdade" exigiria uma ponte Realtime→Postgres (ex.: Edge
-Function periódica) — fora de escopo do MVP. Isso significa que alguém que entrou na
-sessão mas já fechou o app ainda consegue votar, tecnicamente. Aceito como limitação
-conhecida, não como buraco descoberto depois.
+## O que continua protegido
 
-## Gamificação
+- **Chave publicável apenas.** O frontend usa `VITE_SUPABASE_ANON_KEY`. A `service_role`
+  nunca aparece no cliente, no repositório ou nas variáveis do build.
+- **`.env` fora do versionamento.** Apenas `.env.example` é commitado.
+- **RLS habilitado em todas as tabelas.** Permissivo hoje, mas o mecanismo está ligado —
+  restringir é mudar políticas, não reescrever o acesso.
+- **Regras críticas no banco.** "Apenas uma apresentação em execução" é um índice único
+  parcial, não um `if` no cliente.
+- **Validação de tamanho.** `participant` tem `check` de 1 a 60 caracteres; `duration_seconds`
+  é limitado a 3600.
+- **Segredos do deploy em GitHub Secrets.** Ver [`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
-XP/fama/badges são atribuídos por lógica de servidor (RPC/trigger/Edge Function), nunca por
-gravação direta do cliente — proteção contra manipulação de XP.
+## Riscos aceitos, explicitamente
 
-**Implementado na FASE 8:** `points_transactions` não tem policy de insert/update/delete
-para nenhuma role de cliente — só 4 triggers `SECURITY DEFINER` conseguem escrever, e
-cada uma decide o evento e a pontuação sozinha (nunca aceita valores vindos do payload
-do cliente). Mesmo padrão de hardening de `handle_new_user` (FASE 2): as funções de
-trigger têm `EXECUTE` revogado de `anon`/`authenticated` — só rodam via trigger, nunca
-chamáveis direto via `/rest/v1/rpc/award_xp_on_*`.
+| Risco                                            | Impacto | Mitigação atual                              |
+| ------------------------------------------------ | ------- | -------------------------------------------- |
+| Acesso não autorizado ao painel do Host          | Médio   | URL não divulgada; telão à vista             |
+| Escrita anônima na fila (spam de solicitações)   | Baixo   | Toda entrada passa pela aprovação do Host    |
+| Publicidade com URL de imagem arbitrária         | Médio   | Só o Host publica; preview antes de ir ao ar |
+| Telefone do participante legível por qualquer um | Médio   | Campo opcional; ainda não é usado            |
 
-## Boas práticas gerais
+O terceiro item merece atenção: o telão renderiza qualquer URL de imagem que o Host colar. Não
+há validação de domínio nem de conteúdo. O preview antes de publicar é a defesa, e ela depende
+de quem opera.
 
-- Dados pessoais nunca em query string/URL.
-- Cadastro mínimo (nome + WhatsApp); sem dados desnecessários.
-- Tratamento de erros explícito (loading/sucesso/erro/retry), sem `console.log` como
-  tratamento.
-- Logs de auditoria (`audit_logs`) para ações sensíveis.
+## Caminho para produção multi-bar
 
-## Segredos e CI
+1. Ativar Supabase Auth. Login do Host por e-mail com link mágico ou OTP por telefone.
+2. Criar `karaoke_hosts` ligando `auth.uid()` à sala.
+3. Restringir a escrita: participante só pode inserir com `status = 'pending'` na sala dele;
+   aprovar, reordenar, iniciar, cancelar e publicar no telão passam a exigir Host autenticado.
+4. Manter a leitura pública — o telão precisa funcionar sem login.
+5. Validar `image_url` contra uma lista de domínios permitidos ou subir a imagem para o
+   Supabase Storage em vez de aceitar URL externa.
+6. Tratar o telefone como dado pessoal sob a LGPD: consentimento explícito, finalidade
+   declarada e prazo de retenção.
 
-- `.env` no `.gitignore`; `.env.example` documenta as variáveis públicas.
-- Secrets do deploy (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) via GitHub Secrets.
+## LGPD
+
+Dados pessoais coletados hoje: **nome ou apelido** (obrigatório) e **telefone WhatsApp**
+(opcional). Não há e-mail, documento nem dado de pagamento.
+
+O telefone é coletado para avisar o participante que a vez dele chegou, mas essa funcionalidade
+ainda não existe. Enquanto não existir, o campo coleta um dado pessoal sem uso — vale remover
+o campo ou implementar a notificação antes da próxima operação real.
+
+## Reportar um problema
+
+Abra uma issue privada no repositório ou fale direto com a Just Go Smart Access. Não publique
+detalhes de vulnerabilidade em issue pública.

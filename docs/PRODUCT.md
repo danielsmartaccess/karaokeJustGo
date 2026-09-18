@@ -1,61 +1,97 @@
-# PRODUCT — Just Go Karaoke
+# PRODUCT — Karaokê Just Go
 
 ## Visão
 
-Não é um sistema de fila de karaokê. É uma plataforma de **pertencimento, participação,
-reconhecimento e diversão**. O karaokê é o contexto; a experiência social é o produto.
+Não é um tocador de músicas com fila. É uma **plataforma de entretenimento para bares**, em
+que o telão vira canal de comunicação entre a casa e o público, e o Host é o centro de
+controle da noite.
 
-Objetivo emocional: a pessoa entra pensando _"vou cantar uma música"_ e termina a noite
-pensando _"eu fiz parte daquela noite"_.
+O karaokê é a atração. A operação da noite é o produto.
 
-## Três níveis de experiência
+## Problema de negócio
 
-```
-NÍVEL 1 — EU CANTO   →   NÍVEL 2 — EU VOTO   →   NÍVEL 3 — EU FAÇO PARTE
-```
+Uma noite de karaokê em bar costuma ser operada no grito e no papel: alguém anota nomes numa
+lista, o telão só toca vídeo, e o bar não tem como falar com a plateia sem interromper a
+apresentação. Resultado: fila confusa, cliente sem previsibilidade, e zero aproveitamento
+comercial do telão entre uma música e outra.
 
-O participante deve ter motivos para continuar usando o app **mesmo quando não está cantando**.
+## Atores
 
-## Métrica principal
+| Ator             | Onde opera            | O que faz                                                           |
+| ---------------- | --------------------- | ------------------------------------------------------------------- |
+| **Participante** | Celular               | Busca a música, escolhe a versão karaokê e pede para entrar na fila |
+| **Host**         | Notebook ou tablet    | Aprova solicitações, conduz a fila e comanda o telão                |
+| **Telão**        | TV, monitor, projetor | Exibe a apresentação, chamadas, avisos, publicidade e o QR code     |
 
-Não é "número de músicas cantadas". É **participação por usuário por sessão**: a pessoa
-entrou, votou, acompanhou, cantou e **voltou**?
+## As três experiências
 
-## Princípios de produto
+### Participante (`#/`)
 
-- **Reconhecimento, não humilhação.** A gamificação celebra quem participou.
-- **Nunca expor publicamente:** notas individuais negativas, quem ficou em último, votos
-  individuais, avaliações negativas associadas a nome. Sempre resultados **agregados**.
-- A interface deve parecer moderna, tecnológica, divertida, social e cultural — **não**
-  app bancário, ERP, cassino ou app infantil.
+Busca uma versão karaokê (YouTube Data API quando configurada, catálogo de demonstração caso
+contrário), escolhe o vídeo, informa nome e WhatsApp opcional, e envia a solicitação. A
+solicitação nasce **pendente**: quem decide é o Host.
 
-## Primeiro tenant
+### Modo Palco (`#/telao`)
 
-**Armazém Anita** (Porto Alegre/RS) é o primeiro `venue`. A arquitetura é multi-tenant desde
-o início — Anita entra como _seed_, nunca hardcode. O produto pertence à Just Go.
+Tela pública, otimizada para 16:9 e leitura a vários metros. Exibe um de cinco conteúdos:
+apresentação de karaokê, chamada para ação, aviso, publicidade ou QR code de entrada.
 
-## Escopo do MVP
+### Host (`#/host`)
 
-**Faz:** QR → cadastro → sessão → **pedir música (texto livre)** → fila → ser chamado →
-cantar → votação 60s → resultado → XP → ranking. Host controla tudo; telão mostra o
-espetáculo em tempo real.
+Painel com quatro áreas: **Karaokê** (fila, apresentação atual e histórico), **Telão**
+(status, preview e retorno ao karaokê), **Comunicação** (CTAs e avisos) e **Publicidade**
+(campanhas por URL de imagem).
 
-**Vídeo da música (FASE 10):** não há catálogo curado — o participante digita o que quer
-cantar e o host acha o vídeo de karaokê no YouTube (`"<nome> karaokê"`) e joga no telão
-via player embed ao chamar. Sem YouTube Data API — o host cola o link, sem cota nem custo.
-Música de intervalo fica por conta do host, fora do app (o "modo DJ" foi removido em
-2026-09-10 por travar o telão ao alternar com o vídeo da apresentação).
+## Regras de negócio
 
-**Não faz no MVP (seção 60):** rede social completa, chat/DM, upload de músicas, streaming
-próprio, catálogo/curadoria de músicas, processamento de voz, IA de avaliação,
-reconhecimento facial, marketplace, sistema financeiro.
+Implementadas em [`src/store/reducer.ts`](../src/store/reducer.ts) e verificadas em
+[`tests/unit/`](../tests/unit/).
 
-**Direitos autorais:** o `<iframe>` embed é o uso público padrão do YouTube (contadores e
-monetização do vídeo seguem valendo). Isso **não** substitui a licença de execução
-pública de música (ECAD, no Brasil) — essa é responsabilidade do estabelecimento, não do
-software.
+1. Uma solicitação só entra na fila após o Host aprovar.
+2. Toda solicitação tem um participante identificado.
+3. Apenas uma apresentação pode estar em execução por sala. O banco garante isso com um
+   índice único parcial.
+4. Participantes não alteram a ordem da fila. Só o Host.
+5. O Host reordena e cancela solicitações.
+6. Apresentação finalizada sai da fila e entra no histórico como concluída.
+7. Apresentação pulada ou cancelada entra no histórico como cancelada.
+8. A ordem da fila é sempre visível, e o primeiro da fila é marcado como próximo.
+9. A interface diferencia visualmente "agora", "próximo" e "aguardando".
 
-## Critério de sucesso
+## Prioridade do telão
 
-O MVP está funcional quando o fluxo completo do participante, do host e do telão ocorre de
-ponta a ponta, em tempo real, numa sessão real do Armazém Anita.
+O karaokê é o conteúdo de base. O Host pode sobrepor temporariamente:
+
+| Prioridade | Conteúdo          | Comportamento                         |
+| ---------- | ----------------- | ------------------------------------- |
+| 1          | Apresentação      | Estado padrão do telão                |
+| 2          | Aviso             | Sobrepõe; volta ao karaokê ao expirar |
+| 3          | Chamada para ação | Sobrepõe; volta ao karaokê ao expirar |
+| 4          | Publicidade       | Sobrepõe; volta ao karaokê ao expirar |
+
+Durações disponíveis: 10s, 15s, 30s, 1min, 2min ou até o Host remover manualmente. O retorno
+é automático — o telão não fica preso em um banner porque alguém esqueceu de encerrar.
+
+O tempo restante é calculado a partir do instante de expiração, não por decremento. Assim
+telão, celular e painel convergem para o mesmo número sem escrever no banco a cada segundo.
+
+## Estados representados na interface
+
+Nenhuma música em execução · pesquisa sem resultados · resultados encontrados · música
+selecionada · solicitação enviada · aguardando aprovação · participante na fila · próximo da
+fila · apresentação em execução · finalizada · cancelada · vídeo indisponível · telão offline
+· sem conexão · fila vazia.
+
+## Fontes de conteúdo
+
+Hoje: **YouTube**. A interface fala em "versão karaokê", não em "vídeo do YouTube", para não
+acoplar o produto à fonte atual. Evoluções previstas: catálogo próprio, arquivos autorizados,
+serviço de geração de karaokê e agente de IA. Nenhuma implementada.
+
+## Fora de escopo neste MVP
+
+- Autenticação real (ver [`SECURITY.md`](./SECURITY.md)).
+- Votação da plateia, gamificação e reputação — existiam no produto anterior e foram
+  descontinuadas.
+- Download de vídeos.
+- Notificação por WhatsApp. O telefone é coletado, mas ainda não é usado.

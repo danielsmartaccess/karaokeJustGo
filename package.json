@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Just Go Karaoke — plataforma social de karaokê da Just Go Smart Access",
+  "description": "Karaokê Just Go — plataforma de entretenimento para bares da Just Go Smart Access",
   "license": "UNLICENSED",
   "scripts": {
     "dev": "vite",
@@ -18,14 +18,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.1",
     "lucide-react": "^0.454.0",
-    "qrcode": "^1.5.4",
+    "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.27.0",
-    "tailwind-merge": "^2.5.4"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",
@@ -34,7 +30,6 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
     "@types/node": "^22.20.1",
-    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^8.13.0",

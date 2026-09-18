@@ -9,15 +9,18 @@ import type { Database } from './database.types';
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-/** Indica se o backend está configurado (útil para telas em modo demo). */
+/**
+ * Quando falso, a aplicação roda em MODO DEMO: o estado vive só na memória do
+ * navegador e nada é compartilhado entre dispositivos. Útil para aula,
+ * apresentação e desenvolvimento sem backend.
+ */
 export const isSupabaseConfigured = Boolean(url && anonKey);
+
+/** Slug da sala de karaokê desta implantação. */
+export const ROOM_SLUG = import.meta.env.VITE_KARAOKE_ROOM_SLUG || 'just-go';
 
 let client: SupabaseClient<Database> | null = null;
 
-/**
- * Retorna o cliente Supabase. Lança erro claro se as variáveis não estiverem
- * configuradas — evita falhas silenciosas em runtime.
- */
 export function getSupabase(): SupabaseClient<Database> {
   if (!isSupabaseConfigured) {
     throw new Error(
@@ -25,7 +28,9 @@ export function getSupabase(): SupabaseClient<Database> {
     );
   }
   if (!client) {
-    client = createClient<Database>(url, anonKey);
+    client = createClient<Database>(url, anonKey, {
+      realtime: { params: { eventsPerSecond: 10 } },
+    });
   }
   return client;
 }

@@ -1,218 +1,137 @@
-# DATABASE — Just Go Karaoke
+# DATABASE — Karaokê Just Go
 
-> Banco: **PostgreSQL via Supabase**. Schema versionado em `supabase/migrations/` — o banco
-> deve poder ser reconstruído inteiramente a partir das migrations (nada só no painel).
+> PostgreSQL via Supabase. O schema é versionado em `supabase/migrations/` — o banco deve
+> poder ser reconstruído inteiramente a partir das migrations, nada só pelo painel.
+
+Projeto Supabase: `just-go-karaoke` (região `sa-east-1`).
 
 ## Convenções
 
-- Chaves primárias `uuid` (`gen_random_uuid()`).
-- `created_at` / `updated_at` (`timestamptz`) em toda tabela; `updated_at` via trigger.
-- Foreign keys, indexes e constraints explícitos.
-- Row Level Security (RLS) **habilitado em todas as tabelas**.
-- `tenant_id` / `venue_id` onde houver isolamento por estabelecimento.
-- Clareza acima de esperteza — SQL simples e legível.
+- Tabelas do produto atual usam o prefixo `karaoke_`.
+- Chaves primárias são `uuid` com `gen_random_uuid()`.
+- Horários são `timestamptz`. A formatação para exibição acontece no cliente.
+- Todas as tabelas têm RLS habilitado.
 
-## Modelo de dados previsto
+## Modelo
 
-Entidades esperadas (nomenclatura a revisar antes de implementar):
+```
+karaoke_rooms 1 ──── N karaoke_queue_entries
+      │
+      ├──────────── N karaoke_screen_contents
+      │                      ▲
+      │   screen_content_id ─┘  (conteúdo temporário no ar)
+      │
+      └──────────── N karaoke_advertisements
+```
 
-| Grupo         | Tabelas                                                             |
-| ------------- | ------------------------------------------------------------------ |
-| Tenancy       | `tenants`, `venues`                                                 |
-| Identidade    | `profiles` (liga a `auth.users`)                                    |
-| Sessão        | `sessions`                                                          |
-| Catálogo      | ~~`songs`, `user_favorite_songs`~~ — removidos na FASE 10           |
-| Fila / palco  | `queue_entries`, `performances`                                     |
-| Votação       | `vote_categories`, `votes`, `performance_results`                  |
-| Gamificação   | `points_transactions`, `user_reputation`, `badges`, `user_badges` |
-| Ranking       | `leaderboards`, `leaderboard_entries`                              |
-| Premiação     | `awards`                                                            |
-| Auditoria     | `audit_logs`                                                        |
+### `karaoke_rooms`
 
-## Implementado (FASE 2)
+A sala/noite de karaokê. O estado do telão vive aqui para que todos os dispositivos
+convirjam para a mesma verdade.
 
-Projeto Supabase `just-go-karaoke` (região `sa-east-1`), migrations em
-`supabase/migrations/`:
+| Coluna              | Tipo          | Observação                                                 |
+| ------------------- | ------------- | ---------------------------------------------------------- |
+| `id`                | `uuid`        | PK                                                         |
+| `slug`              | `text`        | Único. Identifica a implantação (`VITE_KARAOKE_ROOM_SLUG`) |
+| `name`              | `text`        | Nome exibido                                               |
+| `host_name`         | `text`        | Host da noite, opcional                                    |
+| `screen_online`     | `boolean`     | Host pode desligar o telão                                 |
+| `screen_content_id` | `uuid`        | FK. `NULL` = telão exibindo o karaokê                      |
+| `screen_expires_at` | `timestamptz` | `NULL` = exibe até o Host remover                          |
 
-- **`tenants`** — dono de um ou mais venues. Leitura pública (nome do tenant não é sensível).
-- **`venues`** — estabelecimento físico. Leitura pública; `unique(tenant_id, slug)`.
-- **`profiles`** — 1:1 com `auth.users`, criado automaticamente via trigger
-  `on_auth_user_created` no signup. Cada usuário só lê/edita o próprio registro.
-- **`venue_staff`** — associa um `profile` a um `venue` com papel `HOST` ou `ADMIN`. Todo
-  usuário é implicitamente `PARTICIPANT`; papéis elevados exigem linha explícita aqui (papéis
-  são por venue, não globais — decisão tomada aqui, ainda não documentada como ADR).
+### `karaoke_queue_entries`
 
-RLS habilitada em todas as tabelas; `get_advisors` (security) sem alertas. Seed do primeiro
-tenant/venue (`just-go` / `armazem-anita`) aplicado via migration própria, idempotente
-(`on conflict … do nothing`) — nunca hardcoded na aplicação.
+Fila, apresentação atual e histórico são a **mesma tabela**, distinguidos por `status`. Uma
+solicitação nunca muda de tabela ao longo da noite, o que torna o histórico uma consequência
+e não um registro paralelo que pode divergir.
 
-Tipos TypeScript gerados em `src/lib/database.types.ts` e plugados no cliente
-(`src/lib/supabase.ts`) — regenerar após cada migration nova.
+| Coluna                                                            | Tipo                   | Observação                               |
+| ----------------------------------------------------------------- | ---------------------- | ---------------------------------------- |
+| `room_id`                                                         | `uuid`                 | FK, `on delete cascade`                  |
+| `participant`                                                     | `text`                 | 1 a 60 caracteres                        |
+| `phone`                                                           | `text`                 | WhatsApp opcional                        |
+| `song_title` · `song_artist` · `song_duration` · `song_thumbnail` | `text`                 | Cópia dos metadados no momento do pedido |
+| `youtube_id`                                                      | `text`                 | Mídia na fonte atual                     |
+| `status`                                                          | `karaoke_entry_status` | Ver abaixo                               |
+| `position`                                                        | `integer`              | Ordem na fila                            |
+| `requested_at` · `started_at` · `finished_at`                     | `timestamptz`          | Linha do tempo da solicitação            |
 
-Fila, votação, gamificação, ranking, premiação e auditoria ficam para as próximas fases (ver
-tabela acima).
+Os metadados da música são copiados de propósito. Se o vídeo sair do ar, o histórico continua
+contando o que foi cantado naquela noite.
 
-## Implementado (FASE 3)
+#### `karaoke_entry_status`
 
-- **`sessions`** — `venue_id`, `code` (6 chars, gerado por trigger `sessions_set_code` /
-  `generate_session_code()`, sem 0/O/1/I para evitar confusão), `status`
-  (`SCHEDULED → OPEN → LIVE → CLOSED`), `created_by`, timestamps de cada transição
-  (`opened_at`/`live_at`/`closed_at`).
-- Leitura pública **só** de sessões `OPEN`/`LIVE` (necessária para o fluxo de entrada via
-  código/QR, que acontece antes do participante se autenticar); staff do venue
-  (`venue_staff`) vê todos os status. Criar/atualizar sessão exige ser staff do venue.
-- Hardening pós-advisors: funções de trigger com `search_path` fixo; `handle_new_user`
-  (FASE 2) teve `EXECUTE` revogado de `anon`/`authenticated` — só roda via trigger.
+| Valor       | Significado                                   |
+| ----------- | --------------------------------------------- |
+| `pending`   | Proposta pelo participante, aguardando o Host |
+| `waiting`   | Aprovada e na fila                            |
+| `playing`   | Em execução                                   |
+| `completed` | Apresentada                                   |
+| `cancelled` | Pulada ou cancelada                           |
 
-## Implementado (FASE 4)
+O status `next` **não existe no banco**. É derivado no cliente: quem tem a menor `position`
+entre os `waiting` é o próximo. Persistir isso permitiria o banco discordar de si mesmo.
 
-- **`songs`** — catálogo curado (título, artista, gênero, idioma), sem `venue_id`: um
-  catálogo de karaokê é essencialmente universal, compartilhado entre venues do mesmo
-  tenant/rede. `unique(title, artist)` evita duplicatas. Índices `pg_trgm` (schema
-  `extensions`, não `public` — corrigido após alerta do advisor) em `title`/`artist` para
-  busca por `ilike`. Leitura pública; escrita restrita a `venue_staff` (qualquer venue).
-  Seed inicial com 38 músicas (MPB, sertanejo, rock nacional, pagode, clássicos
-  internacionais) só para destravar teste — catálogo real do Armazém Anita é curadoria
-  futura do host, não gerado por IA.
-- **`user_favorite_songs`** — `(profile_id, song_id)` como chave primária composta; cada
-  usuário só vê/gerencia os próprios favoritos.
+#### Garantias
 
-## Implementado (FASE 5)
+```sql
+create unique index karaoke_queue_entries_one_playing_idx
+  on karaoke_queue_entries (room_id) where status = 'playing';
+```
 
-- **`performances`** — a fila é este table filtrado por `status = QUEUED`, ordenado por
-  `created_at` (FIFO); não existe `queue_entries` separada (ver ARCHITECTURE.md). Enum
-  `performance_status` já tem os 7 valores completos do ciclo de vida (a máquina de estados
-  já existia desde a FASE 1), mas o trigger `validate_performance_transition` só libera
-  `QUEUED → CANCELLED` por enquanto — estender nas FASES 6/7. Índice único parcial
-  `(session_id, performer_id) where status = 'QUEUED'` impede um participante monopolizar a
-  fila com várias músicas ao mesmo tempo.
-- **`public_profiles`** (view) — projeção pública de `profiles` (`id`, `display_name`,
-  `avatar_url`, sem `whatsapp`) para mostrar quem está cantando/na fila para os outros
-  participantes. Usa `security_invoker = false` de propósito, para contornar a RLS
-  self-only de `profiles` — o advisor marca isso como ERROR (`security_definer_view`);
-  revisado e aceito, porque é exatamente essa a única forma de expor nome sem expor
-  WhatsApp (ver docs/SECURITY.md).
+A regra "apenas uma apresentação em execução" é do banco, não da interface. O cliente já
+encerra a anterior antes de iniciar a próxima, mas o índice impede que uma corrida entre dois
+dispositivos do Host coloque duas músicas no ar.
 
-## Implementado (FASE 6)
+### `karaoke_screen_contents`
 
-- Trigger `validate_performance_transition` estendida: agora libera
-  `QUEUED → CALLED → PERFORMING`, além de `CANCELLED` a partir de qualquer um dos três
-  (espelha `CANCELLABLE` em `src/domain/performance/state-machine.ts`). `VOTING` em diante
-  continua bloqueado (FASE 7).
-- Autorização embutida na própria trigger: chamar (`CALLED`) e marcar cantando
-  (`PERFORMING`) exige ser `venue_staff` do venue da sessão E a sessão estar
-  `OPEN`/`LIVE`; cancelar pode ser o próprio performer OU staff.
-- Índice único parcial `(session_id) where status in ('CALLED','PERFORMING')` — só uma
-  pessoa ativa no palco por sessão por vez.
-- Hardening: a policy de INSERT em `performances` não travava `status` explicitamente
-  (um participante mal-intencionado podia inserir já como `CALLED`) — corrigido para
-  exigir `status = 'QUEUED'` no `with check`.
-- `performances` e `sessions` adicionadas à publication `supabase_realtime` — habilita
-  `postgres_changes` no cliente (ver ARCHITECTURE.md).
+Cada publicação no telão gera uma linha. A sala aponta para a que está no ar.
 
-## Implementado (FASE 7)
+| Coluna             | Tipo                          | Observação                                  |
+| ------------------ | ----------------------------- | ------------------------------------------- |
+| `type`             | `karaoke_screen_content_type` | `karaoke`, `cta`, `notice`, `ad`, `qrcode`  |
+| `title`            | `text`                        | Mensagem grande do telão                    |
+| `body`             | `text`                        | Emoji ou texto de apoio                     |
+| `image_url`        | `text`                        | Publicidade                                 |
+| `duration_seconds` | `integer`                     | 1 a 3600. `NULL` = manual                   |
+| `priority`         | `smallint`                    | 1 karaokê · 2 aviso · 3 CTA · 4 publicidade |
 
-- **`performances`** ganha `voting_started_at` — carimbado pelo próprio trigger (nunca
-  pelo cliente: é a base do cálculo da janela de 60s, então não pode ser confiável se
-  vier do payload). Transições liberadas: `PERFORMING → VOTING → RESULT → COMPLETED`.
-- **`session_participants`** — proxy de "presente na sessão" (docs/SECURITY.md exige
-  "votante presente/online"). **Simplificação deliberada:** é "já completou o cadastro
-  nesta sessão", não presença efêmera via WebSocket — Presence real exigiria uma ponte
-  Realtime→Postgres (o trigger SQL não consegue ler estado de um canal Realtime, que só
-  existe na memória do servidor Realtime, não no banco). Documentado como limitação
-  conhecida, não descoberta tardia.
-- **`votes`** — `voice_score`/`performance_score`/`charisma_score`/`fun_score` (1-5,
-  `check` constraint) + `would_sing_along`. `unique(performance_id, voter_id)` impede
-  voto duplicado no banco (defesa em profundidade além do trigger). RLS: cada um só lê
-  o próprio voto — nunca expõe voto individual de outra pessoa (docs/PRODUCT.md).
-- **`validate_vote`** (trigger) — fonte de verdade de todas as regras de
-  docs/SECURITY.md: sem auto-voto, só com `status = VOTING`, dentro dos 60s
-  (`voting_started_at`), só quem está em `session_participants`.
-- **`performance_results`** (view, `security_invoker = false` — mesmo padrão de
-  `public_profiles`) — médias por categoria, Nota da Plateia, % "cantaria junto",
-  contagem de votos. Só existe porque agrega (nunca expõe uma linha de `votes`
-  individualmente) — revisado e aceito no mesmo alerta ERROR do advisor.
+Guardar o histórico de publicações, e não só o conteúdo atual, permite saber depois quantas
+vezes cada campanha foi ao ar.
 
-## Implementado (FASE 8)
+### `karaoke_advertisements`
 
-- **`points_transactions`** — ledger fonte de verdade (XP total = `SUM(points)`). Público
-  para leitura (ao contrário de `votes`: XP é conquista social, feita pra ser celebrada —
-  docs/PRODUCT.md). **Sem policy de insert/update/delete para roles de cliente** — só as
-  4 triggers `SECURITY DEFINER` abaixo escrevem, cada uma reagindo a UMA ação já validada
-  em outra tabela: `session_participants` (JOIN_SESSION + RETURN_VENUE se já visitou o
-  venue antes), `votes` (VOTE + bônus VOTE_FIVE_PERFORMANCES no 5º voto da sessão),
-  `performances` completada (SING), `user_favorite_songs` (FAVORITE_SONG). Valores fixos
-  de `src/domain/gamification/xp.ts` — config de XP por venue fica para FASE 10 se for
-  necessário, não construída especulativamente. **`DUET` não tem trigger** — não existe
-  apresentação com 2 cantores no modelo atual.
-- **`badges`** (catálogo, 4 badges seed) + **`user_badges`** (`unique(profile_id,
-  badge_id)` — uma vez só). Concedidos pelas mesmas 4 triggers.
-- **Sem `leaderboards`/`leaderboard_entries`**: ranking é view agregada
-  (`session_reputation` por sessão, `user_reputation` geral/"hall da fama") sobre
-  `points_transactions`, não tabela materializada — sem processo de snapshot para
-  manter em dia (docs/DATABASE.md: "não cálculo no frontend").
-- Testado ao vivo: matemática de XP conferida em 3 cenários reais (entrar + favoritar +
-  cantar = 125 XP; votar = 30 XP; voltar numa 2ª sessão do mesmo venue = +120 XP e badge
-  "Fiel à Casa", sem duplicar "Primeiro Passo").
+Biblioteca de campanhas do Host: título, URL da imagem e duração padrão.
 
-## Implementado (FASE 9)
+## Realtime
 
-- **`awards`** — `unique(session_id, code)`, um único código no MVP:
-  `PERFORMANCE_OF_THE_NIGHT` (docs/PRODUCT.md/roadmap não menciona categorias extras —
-  não inventadas aqui). Sem policy de insert/update/delete para clientes — só a
-  function `announce_performance_of_the_night(p_session_id)` escreve.
-- A function calcula o vencedor sozinha (maior `audience_score` entre `performances`
-  `COMPLETED` da sessão, empate por `vote_count` depois `created_at`) — o cliente só
-  dispara, nunca escolhe (mesmo princípio de XP: servidor decide o valor). Checa
-  autorização (só `venue_staff`) e pré-condição (sessão precisa estar `CLOSED`) por
-  dentro da própria function, porque RLS não distingue "qual RPC está sendo chamada".
-  Concede também o badge `performance-da-noite` ao vencedor (sistema de badges já
-  existia da FASE 8) — sem XP bônus, XP é um conjunto fechado de eventos do domínio
-  (`src/domain/gamification/xp.ts`), não estendido aqui por especulação.
-- **Bug corrigido nesta fase:** as policies de `sessions` e `performances`
-  ("publicly readable") só cobriam `OPEN`/`LIVE` — testando ao vivo, o telão
-  (visitante anônimo) parava de enxergar a sessão assim que o host encerrava,
-  exatamente no momento do reveal da Performance da Noite. Estendido para incluir
-  `CLOSED` como público em ambas.
+Publicadas em `supabase_realtime`: `karaoke_rooms`, `karaoke_queue_entries` e
+`karaoke_advertisements`. `karaoke_screen_contents` não precisa — o que muda é o ponteiro na
+sala, e a sala já notifica.
 
-## Implementado (FASE 10)
+## RLS
 
-Migration `20260901120000_youtube_media.sql`. O catálogo curado da FASE 4 (38 músicas
-seed) não escalava: qualquer pedido fora do seed travava a fila. Substituído por
-**entrada de texto livre** + **vídeo do YouTube resolvido pelo host** na hora de chamar.
+As quatro tabelas têm uma política `for all to anon, authenticated using (true) with check
+(true)`. É uma decisão consciente e documentada, não um esquecimento: o Host entra sem senha
+neste MVP, então participante e Host chegam ao banco pela mesma role `anon`. Ver
+[`SECURITY.md`](./SECURITY.md) para o risco aceito e o caminho de saída.
 
-- **`songs` e `user_favorite_songs` removidas** (`drop … cascade`). Cai junto o índice
-  `pg_trgm`, o trigger `user_favorite_songs_award_xp` e a função `award_xp_on_favorite()`
-  (removida explícita). O valor `FAVORITE_SONG` continua no enum `xp_event` (Postgres não
-  remove valor de enum sem recriar o tipo) — legado, sem trigger que o gere.
-- **`performances`** perde `song_id` (era FK `not null → songs`, o que prendia tudo ao
-  catálogo) e ganha:
-  - `song_query text not null` — o que a pessoa digitou que quer cantar. Sempre visível
-    (fila, telão, votação, prêmio), inclusive antes de existir vídeo.
-  - `youtube_video_id text` / `youtube_url text` — preenchidos pelo host ao marcar
-    "começou a cantar" (ou depois, ainda em `CALLED`/`PERFORMING`). **Nenhuma policy
-    nova:** a policy de UPDATE "performer or venue staff" já cobre staff, e
-    `validate_performance_transition()` faz `return new` quando o status não muda, então
-    setar só as colunas de vídeo passa.
-- Sem YouTube Data API: o host busca `"<nome> karaokê"` no YouTube por fora e cola o
-  link (`src/lib/youtube.ts` só extrai o id e monta as URLs). Sem cota, sem custo, e o
-  host confere o vídeo antes de projetar.
+## Schema legado
 
-> **Modo DJ removido (2026-09-10):** as colunas `sessions.dj_youtube_video_id` /
-> `dj_started_at` da FASE 10 foram descartadas (migration `20260910190000_drop_dj_mode`).
-> O modo DJ dividia o container do player do YouTube com o ramo da apresentação e
-> travava o telão ao alternar. Música de intervalo agora fica por conta do host, fora
-> do app (som da casa / outra aba), sem chamar o próximo da fila.
+O banco ainda contém as tabelas do produto anterior (`sessions`, `performances`, `votes`,
+`profiles`, `points_transactions`, `badges`, `user_badges`, `awards`, `venues`, `tenants`,
+`venue_staff`, `session_participants`). **Nenhuma é lida ou escrita pelo código atual.**
 
-## Papéis
+Elas não foram removidas porque guardam dados reais das noites já realizadas. A remoção é uma
+decisão de negócio e está preparada em
+[`supabase/scripts/drop-legacy-schema.sql`](../supabase/scripts/drop-legacy-schema.sql), para
+execução manual após exportar o que tiver valor histórico.
 
-`PARTICIPANT` · `HOST` · `ADMIN`. Autorização aplicada via RLS, nunca apenas no frontend.
+## Regenerar os tipos
 
-## Views / functions (quando fizer sentido)
+```bash
+npx supabase gen types typescript --project-id ghtltnxrmskllagitiap > src/lib/database.types.ts
+```
 
-- **Mais cantadas** (dia/mês/histórico) — via view/query agregada, não cálculo no frontend.
-- **Resultado da votação** — calculado no backend (média por categoria, % "eu cantaria junto",
-  Nota da Plateia).
-- **Rankings** — noite / mês / hall da fama / por categoria.
-
-> Este documento evolui junto com o schema a cada fase.
+`src/lib/database.types.ts` é mantido com apenas as tabelas `karaoke_*` — o restante do
+schema não é consumido pela aplicação.

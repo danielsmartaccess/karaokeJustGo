@@ -1,179 +1,126 @@
-# ARCHITECTURE — Just Go Karaoke
+# ARCHITECTURE — Karaokê Just Go
 
 ## Visão geral
 
-```
- PARTICIPANTE (PWA)   HOST (PWA)   TELÃO (Web)
-        \                |               /
-         \               |              /
-          \______________|_____________/
-                         │
-                      SUPABASE
-          ┌──────────────┼──────────────┐
-       PostgreSQL     Realtime         Auth
-                    (Presence +
-                     Broadcast)
-```
+Três dispositivos, um estado. O celular do participante, o notebook do Host e a TV do bar
+abrem a mesma aplicação em rotas diferentes e convergem pelo Supabase Realtime.
 
-Um único app React (Vite SPA) serve as três experiências via rotas, compartilhando domínio,
-tipos e cliente Supabase. Mais simples que três apps separados e adequado ao MVP.
+```
+   CELULAR              NOTEBOOK              TV / PROJETOR
+  #/ participante       #/host                #/telao
+        |                   |                      |
+        +---------+---------+----------+-----------+
+                            |
+                   React (Vite + Tailwind v4)
+                            |
+                   store/KaraokeContext
+                   (reducer + otimismo local)
+                            |
+                 services/karaokeRepository
+                            |
+                    Supabase (PostgREST + Realtime)
+                            |
+                        PostgreSQL
+```
 
 ## Camadas
 
-| Camada       | Pasta            | Responsabilidade                                        |
-| ------------ | ---------------- | ------------------------------------------------------- |
-| **UI**       | `src/ui`, `src/app` | Componentes e telas. Sem regra de negócio no JSX.    |
-| **Domínio**  | `src/domain`     | ⭐ Regras puras e testáveis. Sem React, sem I/O.        |
-| **Dados**    | `src/data`       | Repositories Supabase, realtime, presence (FASE 2+).    |
-| **Lib**      | `src/lib`        | Cliente Supabase, utilitários.                          |
+| Camada      | Onde              | Responsabilidade                                                 |
+| ----------- | ----------------- | ---------------------------------------------------------------- |
+| Views       | `src/views/`      | Uma tela por experiência. Só renderizam e disparam ações         |
+| Componentes | `src/components/` | Peças reutilizáveis. Sem regra de negócio                        |
+| Estado      | `src/store/`      | Reducer puro com as regras + provider que sincroniza             |
+| Serviços    | `src/services/`   | Supabase e busca no YouTube. Única fronteira com o mundo externo |
+| Infra       | `src/lib/`        | Cliente Supabase, tipos do banco, rotas                          |
+| Tipos       | `src/types/`      | Modelo de domínio compartilhado                                  |
 
-**Regra de ouro da arquitetura:** fórmulas de voto, XP, fama, ranking e transições de estado
-vivem no domínio como funções puras. Componentes React apenas as consomem.
+A regra que sustenta o desenho: **componente visual não conhece o Supabase**. Ele despacha
+uma ação; quem decide se aquilo vira uma linha no Postgres é o provider.
 
-## Domínio implementado (FASE 1)
+## Fluxo de uma ação
 
-- **`performance/state-machine.ts`** — máquina de estados da apresentação
-  `QUEUED → CALLED → PERFORMING → VOTING → RESULT → COMPLETED` (+ `CANCELLED`). Transições
-  inválidas são bloqueadas explicitamente.
-- **`voting/rules.ts`** — elegibilidade (sem auto-voto, sem duplicado, só presentes, janela de
-  60s), validação de notas (1–5) e cálculo agregado de resultado (médias, % "eu cantaria
-  junto", Nota da Plateia).
-- **`gamification/xp.ts`** — tabela de XP **configurável** (defaults da seção 25).
+Quando o Host clica em "Iniciar":
 
-## Domínio implementado (FASE 3)
+1. A view despacha `{ type: 'START_PLAYING', entryId }`.
+2. O reducer aplica a mudança **na hora**, sem esperar a rede. O painel responde instantâneo.
+3. O provider chama `applyAction`, que traduz a ação em escritas no Postgres.
+4. O Realtime avisa todos os dispositivos da sala.
+5. Cada um recarrega o snapshot e despacha `HYDRATE`, que substitui o estado local pelo do
+   servidor.
 
-- **`session/state-machine.ts`** — máquina de estados da sessão
-  `SCHEDULED → OPEN → LIVE → CLOSED`, com encerramento antecipado permitido de qualquer
-  estado não terminal (o host pode fechar sem passar por LIVE).
+O passo 2 é otimismo local; o passo 5 é a correção autoritativa. Se a escrita falhar, o
+próximo `HYDRATE` desfaz a mudança otimista — o servidor sempre vence.
 
-## Dados implementados (FASE 3)
+### Fila de saída
 
-- **`data/identity.ts`** — sessão anônima (Supabase Auth), upsert de profile, resolução do
-  venue padrão por slug (`VITE_DEFAULT_VENUE_SLUG`, nunca hardcode o id).
-- **`data/sessions.ts`** — CRUD de sessões e transições de estado (usa o domínio acima para
-  validar antes de escrever no banco — a UI nunca chama `update` diretamente).
+Ações disparadas antes de a sala resolver ficam num _outbox_ em memória e são reenviadas em
+ordem assim que a conexão abre. Sem isso, o participante que escaneia o QR e digita rápido
+perderia a solicitação: ela apareceria na tela dele e sumiria no primeiro `HYDRATE`.
 
-## Dados implementados (FASE 4) — _substituída pela FASE 10_
+## Dois modos de operação
 
-- ~~**`data/songs.ts`** — busca (`ilike` em título/artista), favoritos.~~ Removido: o
-  catálogo curado não escalava (ver FASE 10 abaixo). `data/songs.ts`, `SongsPage` de
-  busca e as tabelas `songs`/`user_favorite_songs` deixaram de existir.
+| Modo        | Condição                         | Comportamento                                        |
+| ----------- | -------------------------------- | ---------------------------------------------------- |
+| **Ao vivo** | `VITE_SUPABASE_URL` + `ANON_KEY` | Estado compartilhado entre dispositivos via Realtime |
+| **Demo**    | Variáveis ausentes               | Estado só na memória da aba, com dados mockados      |
 
-## Dados implementados (FASE 5)
+O modo demo não é um fallback degradado por acidente: é o modo de aula e de desenvolvimento
+offline. `src/data/mockData.ts` traz catálogo, fila inicial, histórico, CTAs, avisos e
+publicidades de exemplo.
 
-- **`data/performances.ts`** — a fila é `performances` com `status = QUEUED`, ordenada por
-  `created_at` (FIFO). Reaproveita `domain/performance/state-machine.ts` (escrito na FASE 1)
-  para validar `QUEUED → CANCELLED` no cliente antes de chamar o banco — o banco valida de
-  novo via trigger (`validate_performance_transition`), que hoje só libera essa mesma
-  transição; as demais (`CALLED`, `PERFORMING`, `VOTING`, `RESULT`, `COMPLETED`) chegam nas
-  FASES 6/7 e vão exigir estender essa função.
-- **`lib/active-session.ts`** — sessão ativa do participante (id + code) persistida em
-  `localStorage`, compartilhada entre `JoinPage`, `SongsPage` e `QueuePage`.
+O status aparece no cabeçalho do Host: _Ao vivo_, _Conectando…_, _Modo demo_ ou _Sem conexão_.
 
-## Dados implementados (FASE 7)
+## Roteamento
 
-- **`data/votes.ts`** — `submitVote`, `getMyVote`, `getResults`. Usa `isValidVote` de
-  `domain/voting/rules.ts` (escrito na FASE 1) para validar o payload antes de enviar —
-  mas quem decide de verdade é o trigger `validate_vote` no servidor.
-- **`data/performances.ts`** ganha `getVotingPerformance` — deliberadamente separada de
-  `getCurrentPerformance` (CALLED/PERFORMING): as duas coexistem, porque o host pode
-  chamar o próximo cantor enquanto a votação do anterior ainda está rolando. `startVoting`,
-  `finishVoting`, `completePerformance` fecham o ciclo QUEUED→…→COMPLETED.
-- **`data/sessions.ts`** ganha `recordSessionParticipation` — grava que o profile entrou
-  na sessão (`session_participants`), chamado no fim do fluxo de `/join`.
-- Encerramento automático da janela de 60s: `HostPage` arma um `setTimeout` client-side
-  que chama `finishVoting` quando o tempo acaba — funciona enquanto a aba do host estiver
-  aberta (é quem está rodando a sessão). Sem cron/Edge Function.
+Hash routing (`#/`, `#/telao`, `#/host`), sem biblioteca. A escolha é consequência do deploy:
+o GitHub Pages serve o app sob `/karaokeJustGo/` e não faz reescrita de caminho. Com hash, a
+TV abre direto no telão e o Host direto no painel, sem configuração de servidor.
 
-## Dados implementados (FASE 8)
+`participantUrl()` em `src/lib/urls.ts` monta o endereço do QR code. O QR sempre aponta para a
+tela do participante, nunca para a aba em que o Host está.
 
-- **`data/gamification.ts`** — só leitura: `getMyReputation`, `getMyBadges`,
-  `getSessionLeaderboard`. XP nunca é escrito pelo cliente (docs/SECURITY.md) — quem
-  grava são 4 triggers `SECURITY DEFINER` no banco, cada uma reagindo a UMA ação já
-  validada em outra tabela (entrar na sessão, apresentação completada, voto, favoritar).
-  Nenhuma tela de app "dá" XP diretamente — só reflete o que o servidor já decidiu.
-- Ranking é view agregada (`session_reputation`, `user_reputation`), não tabela
-  materializada — sem processo de snapshot para manter em dia.
-- `ProfilePage` (`/profile`) e a seção "Ranking da noite" do telão assinam
-  `points_transactions` via Realtime — testado ao vivo: XP e badges aparecem
-  corretamente sem reload, matemática conferida em 3 cenários (entrar+favoritar+cantar,
-  votar, e voltar numa segunda sessão do mesmo venue).
+## O relógio do telão
 
-## Dados implementados (FASE 9)
+Conteúdo temporário guarda o instante de expiração (`expiresAt`), não um contador. Cada
+dispositivo calcula os segundos restantes a partir do próprio relógio e do mesmo
+`screen_expires_at` vindo do banco. Quando o prazo vence, todos voltam ao karaokê sozinhos,
+sem ninguém precisar escrever "acabou" no banco.
 
-- **`data/awards.ts`** — `announcePerformanceOfTheNight` chama a RPC
-  `announce_performance_of_the_night`: o servidor calcula o vencedor (maior Nota da
-  Plateia entre as apresentações `COMPLETED` da sessão), o cliente só dispara o
-  anúncio — nunca escolhe quem ganha (mesmo princípio de XP).
-- **Bug real achado testando ao vivo:** a policy de leitura pública de `sessions` e
-  `performances` só cobria `OPEN`/`LIVE` — assim que o host encerrava a sessão, o
-  telão (visitante anônimo) parava de conseguir ler os dados e mostrava "Sessão não
-  encontrada", bem no momento em que a Performance da Noite deveria aparecer.
-  Corrigido para incluir `CLOSED` como publicamente legível em ambas as tabelas —
-  a noite acabou, não há razão pra esconder o resumo/prêmio do público.
+## Decisões e trocas
 
-## Dados implementados (FASE 6)
+- **Reducer puro separado do provider.** `src/store/reducer.ts` não importa React. É onde as
+  regras de negócio vivem e onde os testes batem.
+- **Sem `react-router`.** Três rotas fixas não justificam a dependência.
+- **Status `next` derivado, não persistido.** Quem é o próximo é sempre o primeiro da fila.
+  Persistir esse status abriria espaço para o banco discordar de si mesmo.
+- **Snapshot inteiro a cada mudança.** Mais simples e previsível que aplicar deltas do
+  Realtime. Para a escala de uma noite de bar, o custo é irrelevante.
+- **Escrita anônima no banco.** Consequência do Host sem senha. Ver [`SECURITY.md`](./SECURITY.md).
 
-- **`data/performances.ts`** ganhou `callNext`, `markPerforming` e
-  `subscribeToPerformances` (Realtime `postgres_changes`, filtrado por `session_id`).
-  Realtime chegou nesta fase como estava planejado (ver "Realtime" abaixo) — `HostPage`,
-  `QueuePage` e a nova `DisplayPage` (telão) assinam mudanças em `performances` e
-  atualizam a UI sem polling e sem o usuário recarregar a página (testado ao vivo).
-- Autorização de quem pode chamar/marcar cantando (só staff do venue, só com sessão
-  aberta) vive na trigger `validate_performance_transition` — a mesma função da FASE 5,
-  estendida — não em RLS pura, porque RLS não distingue "qual transição" está sendo
-  tentada, só "a linha é minha".
-
-## Dados implementados (FASE 10)
-
-- **`lib/youtube.ts`** — funções puras: `parseYouTubeId` (aceita `watch?v=`, `youtu.be/`,
-  `/embed/`, `/shorts/`, `/live/` ou o id cru), `youtubeEmbedUrl` (nocookie + autoplay),
-  `youtubeWatchUrl` e `youtubeKaraokeSearchUrl`.
-  Nenhuma chamada de rede — a busca acontece no YouTube, fora do app.
-- **`data/performances.ts`** — `QueueEntry` troca `song` (join com catálogo) por
-  `songQuery`/`youtubeVideoId`/`youtubeUrl` lidos direto da linha; `hydrate` deixa de
-  fazer join com `songs` (só `public_profiles`). `joinQueue(sessionId, songQuery)` grava
-  texto livre. `markPerforming(id, video?)` grava o vídeo na mesma transição
-  `CALLED → PERFORMING`; `setPerformanceVideo(id, video)` troca o vídeo sem mexer no
-  status.
-- **`data/sessions.ts`** — `subscribeToSession` (Realtime `UPDATE` em `sessions`) leva
-  ao telão o `status`, o CTA e o comando remoto de playback (`sendPlaybackCommand`).
-- **`SongsPage`** vira um formulário de texto livre ("Pedir música") — sem lista, sem
-  favoritos. **`HostPage`**: campo de link do YouTube no card do chamado + controles
-  remotos do telão (Play/Pause/Pular) e a "Central do Telão" (CTAs + ranking).
-  **`DisplayPage`**: player do YouTube (IFrame API, nocookie, autoplay) quando há vídeo
-  em `PERFORMING`; senão, o texto de sempre. O player é montado num `<div>` interno
-  criado imperativamente — o React nunca reconcilia o nó que o IFrame API substitui,
-  o que antes travava o telão ao desmontar.
-- **Caveat de autoplay:** navegador pode bloquear autoplay **com som** sem um gesto
-  prévio do usuário na página do telão — o operador clica uma vez no player pra liberar.
-
-## Estados da sessão
+## Estrutura de arquivos
 
 ```
-SCHEDULED → OPEN → LIVE → CLOSED
+src/
+  App.tsx                      rotas e navegação
+  main.tsx                     ponto de entrada
+  index.css                    design system (Tailwind v4)
+  components/
+    Logo.tsx                   marca oficial, servida de public/
+    SearchBar · SongCard · HistoryTable · EmptyState · ErrorMessage · QRCodeDisplay
+    ui/                        Button · Badge · Modal
+  data/mockData.ts             catálogo e presets do modo demo
+  lib/
+    supabase.ts                cliente e detecção de modo
+    database.types.ts          tipos gerados do schema
+    urls.ts                    rotas e URL do QR code
+  services/
+    karaokeRepository.ts       Postgres <-> domínio + realtime
+    youtubeSearch.ts           YouTube Data API com fallback local
+  store/
+    actions.ts                 vocabulário de ações
+    reducer.ts                 regras de negócio (função pura)
+    KaraokeContext.tsx         provider, sincronização e outbox
+  types/index.ts               modelo de domínio
+  views/
+    ParticipantView · TVQueueView · HostView · HostLogin
 ```
-
-## Realtime
-
-- **`postgres_changes`** (✅ FASE 6) — `HostPage`, `QueuePage` e `DisplayPage` assinam
-  mudanças em `performances`/`sessions` via `data/performances.ts#subscribeToPerformances`.
-  Simples e direto: reage a mudança de linha, sem precisar orquestrar eventos customizados.
-- **Presence** (FASE 7) — usuários online na sessão, base para elegibilidade de voto
-  (`isPresent` em `src/domain/voting/rules.ts`).
-- **Broadcast** (FASE 8+) — eventos customizados de nível "experiência" —
-  `RESULT_AVAILABLE`, `RANKING_UPDATED`, `BADGE_EARNED`, `WINNER_ANNOUNCED` — quando fizer
-  sentido além do que `postgres_changes` já cobre. Sem polling agressivo em nenhum caso.
-
-## Multi-tenancy
-
-`tenant_id` / `venue_id` nas entidades relevantes + RLS. Isolamento entre tenants garantido no
-banco, não só na aplicação.
-
-## Decisões (ADR resumido)
-
-- **Vite SPA único** em vez de multi-app → simplicidade no MVP.
-- **Tailwind v4 + `@tailwindcss/vite`** → config mínima, tokens via `@theme`.
-- **React Router com `basename = BASE_URL`** → funciona sob o subcaminho do GitHub Pages.
-- **Validação de voto no backend** (RLS/Edge Function) → frontend nunca é a fonte de verdade
-  para regras sensíveis.

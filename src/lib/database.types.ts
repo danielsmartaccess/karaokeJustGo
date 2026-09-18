@@ -1,581 +1,208 @@
 // Gerado a partir do schema Supabase (projeto just-go-karaoke).
-// NÃO editar à mão — regenerar via MCP/CLI após cada migration nova.
+// Contém apenas as tabelas karaoke_* — o domínio desta aplicação. As tabelas
+// legadas do app anterior seguem no banco mas não são consumidas pelo código.
+// Regenerar após cada migration: npx supabase gen types typescript --project-id <ref>
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   __InternalSupabase: {
-    PostgrestVersion: '14.15';
+    PostgrestVersion: '14.5';
   };
   public: {
     Tables: {
-      awards: {
+      karaoke_advertisements: {
         Row: {
-          awarded_by: string;
-          code: string;
           created_at: string;
+          duration_seconds: number | null;
           id: string;
-          performance_id: string;
-          session_id: string;
+          image_url: string;
+          room_id: string;
+          title: string;
         };
         Insert: {
-          awarded_by: string;
-          code: string;
           created_at?: string;
+          duration_seconds?: number | null;
           id?: string;
-          performance_id: string;
-          session_id: string;
+          image_url: string;
+          room_id: string;
+          title: string;
         };
         Update: {
-          awarded_by?: string;
-          code?: string;
           created_at?: string;
+          duration_seconds?: number | null;
           id?: string;
-          performance_id?: string;
-          session_id?: string;
+          image_url?: string;
+          room_id?: string;
+          title?: string;
         };
         Relationships: [
           {
-            foreignKeyName: 'awards_performance_id_fkey';
-            columns: ['performance_id'];
+            foreignKeyName: 'karaoke_advertisements_room_id_fkey';
+            columns: ['room_id'];
             isOneToOne: false;
-            referencedRelation: 'performances';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'awards_session_id_fkey';
-            columns: ['session_id'];
-            isOneToOne: false;
-            referencedRelation: 'sessions';
+            referencedRelation: 'karaoke_rooms';
             referencedColumns: ['id'];
           },
         ];
       };
-      badges: {
+      karaoke_queue_entries: {
         Row: {
-          code: string;
+          finished_at: string | null;
+          id: string;
+          participant: string;
+          phone: string | null;
+          position: number;
+          requested_at: string;
+          room_id: string;
+          song_artist: string;
+          song_duration: string;
+          song_thumbnail: string | null;
+          song_title: string;
+          started_at: string | null;
+          status: Database['public']['Enums']['karaoke_entry_status'];
+          youtube_id: string;
+        };
+        Insert: {
+          finished_at?: string | null;
+          id?: string;
+          participant: string;
+          phone?: string | null;
+          position?: number;
+          requested_at?: string;
+          room_id: string;
+          song_artist?: string;
+          song_duration?: string;
+          song_thumbnail?: string | null;
+          song_title: string;
+          started_at?: string | null;
+          status?: Database['public']['Enums']['karaoke_entry_status'];
+          youtube_id: string;
+        };
+        Update: {
+          finished_at?: string | null;
+          id?: string;
+          participant?: string;
+          phone?: string | null;
+          position?: number;
+          requested_at?: string;
+          room_id?: string;
+          song_artist?: string;
+          song_duration?: string;
+          song_thumbnail?: string | null;
+          song_title?: string;
+          started_at?: string | null;
+          status?: Database['public']['Enums']['karaoke_entry_status'];
+          youtube_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'karaoke_queue_entries_room_id_fkey';
+            columns: ['room_id'];
+            isOneToOne: false;
+            referencedRelation: 'karaoke_rooms';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      karaoke_rooms: {
+        Row: {
           created_at: string;
-          description: string;
-          icon: string;
+          host_name: string | null;
           id: string;
           name: string;
-        };
-        Insert: {
-          code: string;
-          created_at?: string;
-          description: string;
-          icon: string;
-          id?: string;
-          name: string;
-        };
-        Update: {
-          code?: string;
-          created_at?: string;
-          description?: string;
-          icon?: string;
-          id?: string;
-          name?: string;
-        };
-        Relationships: [];
-      };
-      performances: {
-        Row: {
-          created_at: string;
-          id: string;
-          performer_id: string;
-          session_id: string;
-          song_query: string;
-          status: Database['public']['Enums']['performance_status'];
-          updated_at: string;
-          voting_started_at: string | null;
-          youtube_url: string | null;
-          youtube_video_id: string | null;
-        };
-        Insert: {
-          created_at?: string;
-          id?: string;
-          performer_id: string;
-          session_id: string;
-          song_query: string;
-          status?: Database['public']['Enums']['performance_status'];
-          updated_at?: string;
-          voting_started_at?: string | null;
-          youtube_url?: string | null;
-          youtube_video_id?: string | null;
-        };
-        Update: {
-          created_at?: string;
-          id?: string;
-          performer_id?: string;
-          session_id?: string;
-          song_query?: string;
-          status?: Database['public']['Enums']['performance_status'];
-          updated_at?: string;
-          voting_started_at?: string | null;
-          youtube_url?: string | null;
-          youtube_video_id?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'performances_session_id_fkey';
-            columns: ['session_id'];
-            isOneToOne: false;
-            referencedRelation: 'sessions';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      points_transactions: {
-        Row: {
-          created_at: string;
-          event: Database['public']['Enums']['xp_event'];
-          id: string;
-          points: number;
-          profile_id: string;
-          session_id: string | null;
-        };
-        Insert: {
-          created_at?: string;
-          event: Database['public']['Enums']['xp_event'];
-          id?: string;
-          points: number;
-          profile_id: string;
-          session_id?: string | null;
-        };
-        Update: {
-          created_at?: string;
-          event?: Database['public']['Enums']['xp_event'];
-          id?: string;
-          points?: number;
-          profile_id?: string;
-          session_id?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'points_transactions_profile_id_fkey';
-            columns: ['profile_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'points_transactions_session_id_fkey';
-            columns: ['session_id'];
-            isOneToOne: false;
-            referencedRelation: 'sessions';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      profiles: {
-        Row: {
-          avatar_url: string | null;
-          created_at: string;
-          display_name: string;
-          id: string;
-          updated_at: string;
-          whatsapp: string | null;
-        };
-        Insert: {
-          avatar_url?: string | null;
-          created_at?: string;
-          display_name: string;
-          id: string;
-          updated_at?: string;
-          whatsapp?: string | null;
-        };
-        Update: {
-          avatar_url?: string | null;
-          created_at?: string;
-          display_name?: string;
-          id?: string;
-          updated_at?: string;
-          whatsapp?: string | null;
-        };
-        Relationships: [];
-      };
-      session_participants: {
-        Row: {
-          joined_at: string;
-          profile_id: string;
-          session_id: string;
-        };
-        Insert: {
-          joined_at?: string;
-          profile_id: string;
-          session_id: string;
-        };
-        Update: {
-          joined_at?: string;
-          profile_id?: string;
-          session_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'session_participants_profile_id_fkey';
-            columns: ['profile_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'session_participants_session_id_fkey';
-            columns: ['session_id'];
-            isOneToOne: false;
-            referencedRelation: 'sessions';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      sessions: {
-        Row: {
-          closed_at: string | null;
-          code: string;
-          created_at: string;
-          created_by: string;
-          /** 'qr' | 'pedido' | 'vote' | 'next' | 'celebrate' — sinal efêmero de CTA no telão. */
-          cta_message: string | null;
-          cta_triggered_at: string | null;
-          /** Hoje só 'RANKING' — override manual do que o telão mostra. */
-          display_override: string | null;
-          id: string;
-          live_at: string | null;
-          opened_at: string | null;
-          /** 'PLAY' | 'PAUSE' — comando remoto para o player do telão. */
-          playback_command: string | null;
-          playback_command_at: string | null;
-          status: Database['public']['Enums']['session_status'];
-          title: string | null;
-          updated_at: string;
-          venue_id: string;
-        };
-        Insert: {
-          closed_at?: string | null;
-          /** Gerado pelo trigger sessions_set_code se omitido — não é required na prática. */
-          code?: string;
-          created_at?: string;
-          created_by?: string;
-          cta_message?: string | null;
-          cta_triggered_at?: string | null;
-          display_override?: string | null;
-          id?: string;
-          live_at?: string | null;
-          opened_at?: string | null;
-          playback_command?: string | null;
-          playback_command_at?: string | null;
-          status?: Database['public']['Enums']['session_status'];
-          title?: string | null;
-          updated_at?: string;
-          venue_id: string;
-        };
-        Update: {
-          closed_at?: string | null;
-          code?: string;
-          created_at?: string;
-          created_by?: string;
-          cta_message?: string | null;
-          cta_triggered_at?: string | null;
-          display_override?: string | null;
-          id?: string;
-          live_at?: string | null;
-          opened_at?: string | null;
-          playback_command?: string | null;
-          playback_command_at?: string | null;
-          status?: Database['public']['Enums']['session_status'];
-          title?: string | null;
-          updated_at?: string;
-          venue_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'sessions_created_by_fkey';
-            columns: ['created_by'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'sessions_venue_id_fkey';
-            columns: ['venue_id'];
-            isOneToOne: false;
-            referencedRelation: 'venues';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      tenants: {
-        Row: {
-          created_at: string;
-          id: string;
-          name: string;
+          screen_content_id: string | null;
+          screen_expires_at: string | null;
+          screen_online: boolean;
           slug: string;
           updated_at: string;
         };
         Insert: {
           created_at?: string;
+          host_name?: string | null;
           id?: string;
           name: string;
+          screen_content_id?: string | null;
+          screen_expires_at?: string | null;
+          screen_online?: boolean;
           slug: string;
           updated_at?: string;
         };
         Update: {
           created_at?: string;
+          host_name?: string | null;
           id?: string;
           name?: string;
+          screen_content_id?: string | null;
+          screen_expires_at?: string | null;
+          screen_online?: boolean;
           slug?: string;
           updated_at?: string;
         };
-        Relationships: [];
-      };
-      user_badges: {
-        Row: {
-          badge_id: string;
-          earned_at: string;
-          profile_id: string;
-          session_id: string | null;
-        };
-        Insert: {
-          badge_id: string;
-          earned_at?: string;
-          profile_id: string;
-          session_id?: string | null;
-        };
-        Update: {
-          badge_id?: string;
-          earned_at?: string;
-          profile_id?: string;
-          session_id?: string | null;
-        };
         Relationships: [
           {
-            foreignKeyName: 'user_badges_badge_id_fkey';
-            columns: ['badge_id'];
+            foreignKeyName: 'karaoke_rooms_screen_content_id_fkey';
+            columns: ['screen_content_id'];
             isOneToOne: false;
-            referencedRelation: 'badges';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_badges_profile_id_fkey';
-            columns: ['profile_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_badges_session_id_fkey';
-            columns: ['session_id'];
-            isOneToOne: false;
-            referencedRelation: 'sessions';
+            referencedRelation: 'karaoke_screen_contents';
             referencedColumns: ['id'];
           },
         ];
       };
-      votes: {
+      karaoke_screen_contents: {
         Row: {
-          charisma_score: number;
+          body: string | null;
           created_at: string;
-          fun_score: number;
+          duration_seconds: number | null;
           id: string;
-          performance_id: string;
-          performance_score: number;
-          voice_score: number;
-          voter_id: string;
-          would_sing_along: boolean;
+          image_url: string | null;
+          priority: number;
+          room_id: string;
+          title: string;
+          type: Database['public']['Enums']['karaoke_screen_content_type'];
         };
         Insert: {
-          charisma_score: number;
+          body?: string | null;
           created_at?: string;
-          fun_score: number;
+          duration_seconds?: number | null;
           id?: string;
-          performance_id: string;
-          performance_score: number;
-          voice_score: number;
-          voter_id: string;
-          would_sing_along: boolean;
+          image_url?: string | null;
+          priority?: number;
+          room_id: string;
+          title: string;
+          type: Database['public']['Enums']['karaoke_screen_content_type'];
         };
         Update: {
-          charisma_score?: number;
+          body?: string | null;
           created_at?: string;
-          fun_score?: number;
+          duration_seconds?: number | null;
           id?: string;
-          performance_id?: string;
-          performance_score?: number;
-          voice_score?: number;
-          voter_id?: string;
-          would_sing_along?: boolean;
+          image_url?: string | null;
+          priority?: number;
+          room_id?: string;
+          title?: string;
+          type?: Database['public']['Enums']['karaoke_screen_content_type'];
         };
         Relationships: [
           {
-            foreignKeyName: 'votes_performance_id_fkey';
-            columns: ['performance_id'];
+            foreignKeyName: 'karaoke_screen_contents_room_id_fkey';
+            columns: ['room_id'];
             isOneToOne: false;
-            referencedRelation: 'performances';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'votes_voter_id_fkey';
-            columns: ['voter_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      venue_staff: {
-        Row: {
-          created_at: string;
-          id: string;
-          profile_id: string;
-          role: Database['public']['Enums']['staff_role'];
-          venue_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          id?: string;
-          profile_id: string;
-          role?: Database['public']['Enums']['staff_role'];
-          venue_id: string;
-        };
-        Update: {
-          created_at?: string;
-          id?: string;
-          profile_id?: string;
-          role?: Database['public']['Enums']['staff_role'];
-          venue_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'venue_staff_profile_id_fkey';
-            columns: ['profile_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'venue_staff_venue_id_fkey';
-            columns: ['venue_id'];
-            isOneToOne: false;
-            referencedRelation: 'venues';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      venues: {
-        Row: {
-          city: string | null;
-          created_at: string;
-          id: string;
-          name: string;
-          slug: string;
-          state: string | null;
-          tenant_id: string;
-          updated_at: string;
-        };
-        Insert: {
-          city?: string | null;
-          created_at?: string;
-          id?: string;
-          name: string;
-          slug: string;
-          state?: string | null;
-          tenant_id: string;
-          updated_at?: string;
-        };
-        Update: {
-          city?: string | null;
-          created_at?: string;
-          id?: string;
-          name?: string;
-          slug?: string;
-          state?: string | null;
-          tenant_id?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'venues_tenant_id_fkey';
-            columns: ['tenant_id'];
-            isOneToOne: false;
-            referencedRelation: 'tenants';
+            referencedRelation: 'karaoke_rooms';
             referencedColumns: ['id'];
           },
         ];
       };
     };
     Views: {
-      performance_results: {
-        Row: {
-          audience_score: number | null;
-          charisma_avg: number | null;
-          fun_avg: number | null;
-          performance_avg: number | null;
-          performance_id: string | null;
-          sing_along_percent: number | null;
-          voice_avg: number | null;
-          vote_count: number | null;
-        };
-        Relationships: [];
-      };
-      public_profiles: {
-        Row: {
-          avatar_url: string | null;
-          display_name: string | null;
-          id: string | null;
-        };
-        Relationships: [];
-      };
-      session_reputation: {
-        Row: {
-          display_name: string | null;
-          profile_id: string | null;
-          session_id: string | null;
-          session_xp: number | null;
-        };
-        Relationships: [];
-      };
-      user_reputation: {
-        Row: {
-          display_name: string | null;
-          event_count: number | null;
-          profile_id: string | null;
-          total_xp: number | null;
-        };
-        Relationships: [];
-      };
+      [_ in never]: never;
     };
     Functions: {
-      announce_performance_of_the_night: {
-        Args: { p_session_id: string };
-        Returns: {
-          awarded_by: string;
-          code: string;
-          created_at: string;
-          id: string;
-          performance_id: string;
-          session_id: string;
-        };
-      };
-      generate_session_code: { Args: never; Returns: string };
+      [_ in never]: never;
     };
     Enums: {
-      performance_status:
-        | 'QUEUED'
-        | 'CALLED'
-        | 'PERFORMING'
-        | 'VOTING'
-        | 'RESULT'
-        | 'COMPLETED'
-        | 'CANCELLED';
-      session_status: 'SCHEDULED' | 'OPEN' | 'LIVE' | 'CLOSED';
-      staff_role: 'HOST' | 'ADMIN';
-      xp_event:
-        | 'JOIN_SESSION'
-        | 'SING'
-        | 'VOTE'
-        | 'VOTE_FIVE_PERFORMANCES'
-        | 'FAVORITE_SONG'
-        | 'RETURN_VENUE'
-        | 'DUET';
+      karaoke_entry_status: 'pending' | 'waiting' | 'playing' | 'completed' | 'cancelled';
+      karaoke_screen_content_type: 'karaoke' | 'cta' | 'notice' | 'ad' | 'qrcode';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -583,126 +210,12 @@ export type Database = {
   };
 };
 
-type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
-type DefaultSchema = DatabaseWithoutInternals['public'];
+type PublicSchema = Database['public'];
 
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
-      Row: infer R;
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
-    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R;
-      }
-      ? R
-      : never
-    : never;
+export type KaraokeEntryStatus = PublicSchema['Enums']['karaoke_entry_status'];
+export type KaraokeScreenContentType = PublicSchema['Enums']['karaoke_screen_content_type'];
 
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
-      Insert: infer I;
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I;
-      }
-      ? I
-      : never
-    : never;
-
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
-      Update: infer U;
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U;
-      }
-      ? U
-      : never
-    : never;
-
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema['Enums']
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
-    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
-    : never;
-
-export const Constants = {
-  public: {
-    Enums: {
-      performance_status: [
-        'QUEUED',
-        'CALLED',
-        'PERFORMING',
-        'VOTING',
-        'RESULT',
-        'COMPLETED',
-        'CANCELLED',
-      ],
-      session_status: ['SCHEDULED', 'OPEN', 'LIVE', 'CLOSED'],
-      staff_role: ['HOST', 'ADMIN'],
-      xp_event: [
-        'JOIN_SESSION',
-        'SING',
-        'VOTE',
-        'VOTE_FIVE_PERFORMANCES',
-        'FAVORITE_SONG',
-        'RETURN_VENUE',
-        'DUET',
-      ],
-    },
-  },
-} as const;
+export type KaraokeRoomRow = PublicSchema['Tables']['karaoke_rooms']['Row'];
+export type KaraokeQueueEntryRow = PublicSchema['Tables']['karaoke_queue_entries']['Row'];
+export type KaraokeScreenContentRow = PublicSchema['Tables']['karaoke_screen_contents']['Row'];
+export type KaraokeAdvertisementRow = PublicSchema['Tables']['karaoke_advertisements']['Row'];
