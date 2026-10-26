@@ -50,7 +50,7 @@ function AppContent() {
 
   return (
     <div className="relative">
-      {view === 'participant' && <ParticipantView onViewQueue={() => navigate('tv')} />}
+      {view === 'participant' && <ParticipantView />}
       {view === 'tv' && <TVQueueView />}
       {view === 'host' &&
         (hostName ? (
@@ -59,27 +59,30 @@ function AppContent() {
           <HostLogin onEnter={handleHostEnter} />
         ))}
 
-      {/* Bottom nav */}
-      <nav
-        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-1.5 py-1.5 bg-[#0d0020]/95 border border-pink-900/40 rounded-2xl backdrop-blur-xl"
-        style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(233,30,140,0.12)' }}
-      >
-        {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => navigate(id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-              view === id
-                ? 'text-white neon-glow-pink'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'
-            }`}
-            style={view === id ? { background: '#e91e8c' } : {}}
-          >
-            <Icon className="w-4 h-4 shrink-0" />
-            <span className="hidden sm:inline">{label}</span>
-          </button>
-        ))}
-      </nav>
+      {/* Troca de modo é coisa de quem opera o bar (Palco e Host). O participante
+          que chega pelo QR code fica só na experiência dele. */}
+      {view !== 'participant' && (
+        <nav
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-1.5 py-1.5 bg-[#0d0020]/95 border border-pink-900/40 rounded-2xl backdrop-blur-xl"
+          style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(233,30,140,0.12)' }}
+        >
+          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => navigate(id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                view === id
+                  ? 'text-white neon-glow-pink'
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'
+              }`}
+              style={view === id ? { background: '#e91e8c' } : {}}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }

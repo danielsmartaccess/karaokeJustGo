@@ -24,6 +24,23 @@ test('participante busca uma música e envia para aprovação', async ({ page })
   await expect(page.getByText('Teste E2E')).toBeVisible();
 });
 
+test('participante não vê a troca de modos Palco e Host', async ({ page }) => {
+  await page.goto('./');
+
+  await expect(page.getByRole('heading', { name: 'Escolha sua música' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /modo palco/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^host$/i })).toHaveCount(0);
+});
+
+test('participante vê a fila em andamento sem sair do modo dele', async ({ page }) => {
+  await page.goto('./');
+
+  await page.getByRole('button', { name: /ver fila/i }).click();
+
+  await expect(page.getByRole('heading', { name: 'Fila ao vivo' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /modo palco/i })).toHaveCount(0);
+});
+
 test('modo palco abre pela própria rota', async ({ page }) => {
   await page.goto('./#/telao');
 
