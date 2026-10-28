@@ -15,12 +15,17 @@
  *
  * Uso: node scripts/verifica-sincronia.mjs
  *
- * ATENCAO: escreve na sala real e limpa o que criou ao final.
+ * Por padrao testa o preview local no base path do GitHub Pages. Para outro
+ * endereco (ex.: build na raiz do dominio), defina SYNC_BASE_URL com a barra
+ * final: SYNC_BASE_URL=http://localhost:4173/ node scripts/verifica-sincronia.mjs
+ *
+ * ATENCAO: escreve na sala real e limpa o que criou ao final. Nao aponte para
+ * um endereco publicado sem querer escrever na fila de producao.
  */
 
 import { chromium } from '@playwright/test';
 
-const BASE = 'http://localhost:4173/karaokeJustGo/';
+const BASE = process.env.SYNC_BASE_URL ?? 'http://localhost:4173/karaokeJustGo/';
 const browser = await chromium.launch();
 const ctx = await browser.newContext();
 let falhas = 0;

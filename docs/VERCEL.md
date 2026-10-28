@@ -89,8 +89,9 @@ API v3.
 Supabase, senha do banco, tokens de acesso do Supabase e do GitHub. O app não precisa de
 nenhum deles em runtime, pois não tem servidor. Não cadastre nenhum na Vercel.
 
-`VITE_DEFAULT_VENUE_SLUG`, usada em `.github/workflows/ci.yml`, **não é lida pelo código**
-(o app lê `VITE_KARAOKE_ROOM_SLUG`). Não a replique na Vercel.
+`VITE_DEFAULT_VENUE_SLUG` é uma variável antiga do repositório, herdada do modelo anterior do
+produto, que **o código não lê** (o app lê `VITE_KARAOKE_ROOM_SLUG`). Não a replique na Vercel
+nem a copie para `VITE_KARAOKE_ROOM_SLUG`: isso trocaria a sala usada.
 
 ## Preview, proteção e Supabase
 
@@ -265,11 +266,11 @@ Quatro caminhos distintos. Esta etapa não implementa nenhum deles.
 A escolha envolve custo, segurança (quem pode enviar e baixar arquivos) e a análise de direitos
 autorais acima. É uma decisão de arquitetura pendente.
 
-## Divergências preexistentes (não alteradas)
+## Divergências preexistentes
 
-- `ci.yml` passa `VITE_DEFAULT_VENUE_SLUG`, mas o código lê `VITE_KARAOKE_ROOM_SLUG`. Hoje não
-  causa dano porque o padrão do código é `just-go`. Detalhes em
-  [`DEPLOYMENT.md`](./DEPLOYMENT.md#variáveis-necessárias).
+- **Corrigida:** o `ci.yml` passava `VITE_DEFAULT_VENUE_SLUG`, que o código não lê. Agora passa
+  `VITE_KARAOKE_ROOM_SLUG`. Como essa variável não existe no repositório, o build segue usando
+  `just-go`. Detalhes em [`DEPLOYMENT.md`](./DEPLOYMENT.md#variáveis-necessárias).
 - O teste E2E "host alcança a fila e vê o estado vazio" falha em modo demo, porque o estado
   demo já vem com fila. Ele pressupõe uma sala real e vazia.
 - O manifest sai com `lang: "en"`, apesar de o app ser `pt-BR`.

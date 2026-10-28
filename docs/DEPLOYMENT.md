@@ -20,25 +20,28 @@ Não há passo manual. Merge em `main` é o deploy.
 
 Em **Settings → Secrets and variables → Actions**:
 
-| Nome                     | Tipo     | Valor                                      |
-| ------------------------ | -------- | ------------------------------------------ |
-| `VITE_SUPABASE_URL`      | Secret   | `https://ghtltnxrmskllagitiap.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | Secret   | Chave publicável (nunca a `service_role`)  |
-| `VITE_KARAOKE_ROOM_SLUG` | Variable | `just-go`                                  |
+| Nome                     | Tipo                | Valor                                      |
+| ------------------------ | ------------------- | ------------------------------------------ |
+| `VITE_SUPABASE_URL`      | Secret              | `https://ghtltnxrmskllagitiap.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Secret              | Chave publicável (nunca a `service_role`)  |
+| `VITE_KARAOKE_ROOM_SLUG` | Variable (opcional) | `just-go`                                  |
 
 > Se `VITE_KARAOKE_ROOM_SLUG` não estiver definida, o app usa `just-go` como padrão.
 > Se as duas primeiras faltarem, o build sai em **modo demo** e nada é compartilhado entre
 > dispositivos. É o sintoma a checar primeiro se a fila não aparece na TV.
 >
-> **Divergência conhecida entre o código e o workflow.** O código lê `VITE_KARAOKE_ROOM_SLUG`
-> ([`src/lib/supabase.ts`](../src/lib/supabase.ts)), mas o passo de build do
-> [`ci.yml`](../.github/workflows/ci.yml) injeta `VITE_DEFAULT_VENUE_SLUG`, que nenhum arquivo
-> de `src/` lê. Na prática, cadastrar `VITE_KARAOKE_ROOM_SLUG` em _Actions → Variables_ **não
-> tem efeito** no build do GitHub Pages, porque a variável não chega ao Vite. Como o código
-> recorre a `just-go` quando `VITE_KARAOKE_ROOM_SLUG` está ausente ou vazia, a produção usa
-> hoje sempre a sala `just-go`. Trocar de sala nesse pipeline exige corrigir o `ci.yml`, o que
-> não foi feito. Na Vercel, a variável correta é `VITE_KARAOKE_ROOM_SLUG`
-> (ver [`VERCEL.md`](./VERCEL.md)).
+> **Histórico da variável da sala.** O código lê `VITE_KARAOKE_ROOM_SLUG`
+> ([`src/lib/supabase.ts`](../src/lib/supabase.ts)). Até esta correção, o passo de build do
+> [`ci.yml`](../.github/workflows/ci.yml) injetava `VITE_DEFAULT_VENUE_SLUG`, que nenhum arquivo
+> de `src/` lê, então a variável documentada acima nunca chegava ao build. Agora o `ci.yml`
+> injeta `VITE_KARAOKE_ROOM_SLUG`, vinda de _Actions → Variables_.
+>
+> Em 2026-10-28 essa variável **não existe** no repositório, então o build usa o padrão
+> `just-go`, o mesmo comportamento de antes. Existe uma variável antiga,
+> `VITE_DEFAULT_VENUE_SLUG`, herdada do modelo anterior do produto e com o valor de outro
+> estabelecimento. O código não a lê e **ela não deve ser copiada para
+> `VITE_KARAOKE_ROOM_SLUG`**, porque isso trocaria a sala usada em produção. Na Vercel, a
+> variável correta também é `VITE_KARAOKE_ROOM_SLUG` (ver [`VERCEL.md`](./VERCEL.md)).
 
 ## Base path
 
