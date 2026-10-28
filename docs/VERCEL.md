@@ -146,8 +146,27 @@ escopo da raiz; `manifest` com `scope` e `start_url` iguais a `/`; `sw.js` com
 `must-revalidate`.
 
 **Não confirmado neste deploy:** a versão do Node usada no build (o log não a imprime; o
-projeto nasceu com 24.x e `engines` pede 22.x); a comunicação ao vivo com o Supabase; a
-instalação e a atualização do PWA; o comportamento num celular e na TV reais.
+projeto nasceu com 24.x e `engines` pede 22.x); a instalação e a atualização do PWA; o
+comportamento num celular e na TV reais.
+
+### Segundo deploy: produção em modo "Ao vivo" (2026-10-28)
+
+Depois que o proprietário cadastrou `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`, o build de
+produção foi refeito (as `VITE_*` são embutidas no build, então salvar a variável não muda o
+site no ar).
+
+- **Armadilha confirmada:** a importação do `.env` na Vercel marca por padrão **Preview**, além
+  de Production. As duas variáveis foram salvas com `preview` e `production` e tiveram de ser
+  restringidas a **somente Production**; com Preview marcado, cada push de branch geraria um
+  preview ligado ao Supabase real. `VITE_KARAOKE_ROOM_SLUG` não foi importada, e o padrão do
+  código (`just-go`) cobre o caso.
+- **Validação somente leitura** (Chromium real contra `karaoke-just-go.vercel.app`): o Host
+  mostrou "Ao vivo" em vez de "Modo demo"; o app fez 4 requisições `GET` ao Supabase
+  (`karaoke_rooms`, `karaoke_queue_entries`, `karaoke_advertisements`), todas com status 200;
+  o websocket do Realtime conectou; **nenhuma escrita** (POST, PATCH ou DELETE) foi disparada;
+  sem erros de console.
+- **Plano:** o proprietário informou ter passado para o Pro. A API consultada ainda mostrava
+  `hobby` no campo de cobrança do usuário, então isso **não foi confirmado** pela API.
 
 ## Plano de publicação
 
