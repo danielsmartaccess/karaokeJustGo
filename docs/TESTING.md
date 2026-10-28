@@ -24,12 +24,23 @@ O alvo é [`src/store/reducer.ts`](../src/store/reducer.ts), a função pura ond
 regras de negócio. Testar o reducer cobre a lógica do produto sem montar componente nem mockar
 rede, então os testes são rápidos e não quebram quando a interface muda de cor.
 
-| Arquivo               | Cobre                                                            |
-| --------------------- | ---------------------------------------------------------------- |
-| `queue-rules.test.ts` | Aprovação, recusa, ordem da fila, apresentação única, histórico  |
-| `telao-rules.test.ts` | Publicação, contagem regressiva, retorno automático, publicidade |
+| Arquivo                 | Cobre                                                             |
+| ----------------------- | ----------------------------------------------------------------- |
+| `queue-rules.test.ts`   | Aprovação, recusa, ordem da fila, apresentação única, histórico   |
+| `telao-rules.test.ts`   | Publicação, contagem regressiva, retorno automático, publicidade  |
+| `telao-screen.test.tsx` | TV e espelho do Host mostram a mesma tela, nos 6 estados do telão |
+| `latest-gate.test.ts`   | Ordem das leituras da sala e escala do espelho                    |
+
+`telao-screen.test.tsx` monta o provedor, então ele **fixa o modo demo com `vi.mock`**. O Vitest
+carrega o `.env` local; sem o mock, o teste conectaria ao banco real e gravaria nele.
 
 Casos que existem porque quebraram de verdade:
+
+- **"TV e espelho mostram a mesma tela"** nasceu de um bug real: o preview do Host era uma
+  miniatura desenhada à mão e divergia da TV. O teste compara o texto completo das duas telas e
+  já pegou, ainda no desenvolvimento, um "▶" decorativo que existia só no espelho.
+- **"descarta a resposta antiga que chega depois da mais nova"** cobre a corrida entre leituras
+  da sala, que deixava um aparelho com o estado velho.
 
 - **"ignora movimentos fora dos limites da fila"** nasceu de um bug real: os identificadores
   locais usavam `Date.now()` e colidiam quando duas entradas eram criadas no mesmo
@@ -46,11 +57,12 @@ Casos que existem porque quebraram de verdade:
 Roda contra o **build de produção** servido no base path do GitHub Pages, não no dev server.
 É o que mais se aproxima do que o bar vai abrir.
 
-| Teste                          | Verifica                                                     |
-| ------------------------------ | ------------------------------------------------------------ |
-| Participante envia solicitação | Busca, seleção, modal de nome e tela de aguardando aprovação |
-| Modo palco abre pela rota      | `#/telao` carrega direto, sem passar pela home               |
-| Host entra sem senha           | `#/host`, nome do Host e acesso ao controle do telão         |
+| Teste                           | Verifica                                                     |
+| ------------------------------- | ------------------------------------------------------------ |
+| Participante envia solicitação  | Busca, seleção, modal de nome e tela de aguardando aprovação |
+| Modo palco abre pela rota       | `#/telao` carrega direto, sem passar pela home               |
+| Host entra sem senha            | `#/host`, nome do Host e acesso ao controle do telão         |
+| Preview do Host espelha o telão | Publica uma chamada e compara o espelho com a rota `#/telao` |
 
 ## Atenção ao rodar o E2E localmente
 

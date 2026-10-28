@@ -72,6 +72,37 @@ test('host entra sem senha e alcança o controle do telão', async ({ page }) =>
   await expect(page.getByText('Preview do Telão')).toBeVisible();
 });
 
+test('o preview do Host espelha a tela real do telão', async ({ page }) => {
+  await page.goto('./#/host');
+  await page.getByLabel('Nome do Host').fill('Dani');
+  await page.getByRole('button', { name: 'ENTRAR NO KARAOKÊ' }).click();
+
+  // Publica uma chamada para ação (conteúdo temporário, com contador).
+  await page.getByRole('button', { name: /^📣 Comunicação$/ }).click();
+  await page
+    .getByRole('button', { name: /Exibir/ })
+    .first()
+    .click();
+
+  // Espelho no painel do Host.
+  await page.getByRole('button', { name: /^📺 Telão$/ }).click();
+  const espelho = page.getByTestId('telao-mirror').getByTestId('telao-screen');
+  await expect(espelho).toContainText('AO VIVO');
+  const textoDoEspelho = await espelho.textContent();
+
+  // A rota da TV, no mesmo navegador: só o hash muda, o estado da sala permanece.
+  await page.goto('./#/telao');
+  const tv = page.getByTestId('telao-screen');
+  await expect(tv).toContainText('AO VIVO');
+
+  // Mesma tela: cabeçalho, título da chamada e contador regressivo. O contador
+  // pode ter avançado um segundo entre as duas leituras, então ele é comparado
+  // à parte.
+  const semContador = (t: string | null) => (t ?? '').replace(/\d+s$/, '');
+  expect(semContador(await tv.textContent())).toBe(semContador(textoDoEspelho));
+  expect(textoDoEspelho).toMatch(/\d+s$/);
+});
+
 test('host alcança a fila e vê o estado vazio', async ({ page }) => {
   await page.goto('./#/host');
   await page.getByLabel('Nome do Host').fill('Dani');

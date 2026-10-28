@@ -17,8 +17,19 @@ import {
   fetchSnapshot,
   subscribeToRoom,
 } from '../services/karaokeRepository';
+import { createLatestGate } from '../lib/latestGate';
 import { LOCAL_ONLY_ACTIONS, type KaraokeAction } from './actions';
 import { demoState, emptyState, reducer } from './reducer';
+
+/**
+ * De quanto em quanto tempo cada aparelho relê a sala por conta própria.
+ *
+ * O realtime avisa das mudanças, mas não repete o que aconteceu enquanto o
+ * aparelho esteve sem rede ou com a aba dormindo (típico de TV e de notebook
+ * com a tampa fechada). Sem esta releitura, um aparelho que perdeu um aviso
+ * ficava mostrando um estado velho até alguém mexer na sala de novo.
+ */
+const RESYNC_INTERVAL_MS = 20_000;
 
 /**
  * Estado compartilhado do karaoke.
@@ -38,6 +49,8 @@ interface KaraokeContextType {
   state: KaraokeSnapshot;
   dispatch: Dispatch<KaraokeAction>;
   connection: ConnectionStatus;
+  /** Epoch em ms da última leitura bem-sucedida da sala; null no modo demo ou antes da primeira. */
+  lastSyncAt: number | null;
 }
 
 const KaraokeContext = createContext<KaraokeContextType | undefined>(undefined);
@@ -47,6 +60,7 @@ export function KaraokeProvider({ children }: { children: ReactNode }) {
   const [connection, setConnection] = useState<ConnectionStatus>(
     isSupabaseConfigured ? 'connecting' : 'demo',
   );
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
 
   const roomIdRef = useRef<string | null>(null);
   // O repositório precisa do estado ANTERIOR à ação; um ref evita recriar
@@ -68,12 +82,21 @@ export function KaraokeProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) return;
     let active = true;
     let unsubscribe: (() => void) | undefined;
+    let stopResync: (() => void) | undefined;
+    const gate = createLatestGate();
 
     const reload = async () => {
-      if (!roomIdRef.current) return;
+      const roomId = roomIdRef.current;
+      if (!roomId) return;
+      const ticket = gate.begin();
       try {
-        const snapshot = await fetchSnapshot(roomIdRef.current);
-        if (active) baseDispatch({ type: 'HYDRATE', snapshot });
+        const snapshot = await fetchSnapshot(roomId);
+        // Leituras em voo podem terminar fora de ordem: uma resposta antiga não
+        // pode sobrescrever uma mais nova que já foi aplicada.
+        if (active && gate.accept(ticket)) {
+          baseDispatch({ type: 'HYDRATE', snapshot });
+          setLastSyncAt(Date.now());
+        }
       } catch (error) {
         console.error('[karaoke] falha ao recarregar a sala', error);
       }
@@ -97,7 +120,28 @@ export function KaraokeProvider({ children }: { children: ReactNode }) {
 
         await reload();
         if (!active) return;
-        unsubscribe = subscribeToRoom(roomId, () => void reload());
+        unsubscribe = subscribeToRoom(
+          roomId,
+          () => void reload(),
+          // A cada (re)conexão do canal, relê a sala: cobre o que mudou entre a
+          // leitura inicial e a assinatura, e o que se perdeu numa queda de rede.
+          (status) => {
+            if (status === 'SUBSCRIBED') void reload();
+          },
+        );
+
+        const resyncIfVisible = () => {
+          if (document.visibilityState === 'visible') void reload();
+        };
+        const timer = setInterval(resyncIfVisible, RESYNC_INTERVAL_MS);
+        document.addEventListener('visibilitychange', resyncIfVisible);
+        window.addEventListener('online', resyncIfVisible);
+        stopResync = () => {
+          clearInterval(timer);
+          document.removeEventListener('visibilitychange', resyncIfVisible);
+          window.removeEventListener('online', resyncIfVisible);
+        };
+
         setConnection('live');
       } catch (error) {
         console.error('[karaoke] nao foi possivel conectar ao Supabase', error);
@@ -108,6 +152,7 @@ export function KaraokeProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
       unsubscribe?.();
+      stopResync?.();
     };
   }, []);
 
@@ -138,7 +183,7 @@ export function KaraokeProvider({ children }: { children: ReactNode }) {
   }, [expiresAt]);
 
   return (
-    <KaraokeContext.Provider value={{ state, dispatch, connection }}>
+    <KaraokeContext.Provider value={{ state, dispatch, connection, lastSyncAt }}>
       {children}
     </KaraokeContext.Provider>
   );

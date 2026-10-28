@@ -56,7 +56,7 @@ export function QRCodeTelaoMode({ url }: { url: string }) {
         <p className="text-xs font-mono text-pink-500 tracking-[0.35em] uppercase mb-3">
           Junte-se ao Karaokê!
         </p>
-        <h1 className="text-4xl md:text-6xl font-display font-black text-white leading-none gradient-title">
+        <h1 className="text-4xl @3xl:text-6xl font-display font-black text-white leading-none gradient-title">
           Escaneie e Cante!
         </h1>
       </div>
