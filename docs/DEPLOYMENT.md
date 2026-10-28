@@ -32,10 +32,14 @@ Em **Settings → Secrets and variables → Actions**:
 
 ## Base path
 
-O Vite publica em `/karaokeJustGo/`, definido em [`vite.config.ts`](../vite.config.ts). O
-nome precisa bater com o do repositório. Se o repositório for renomeado, atualize `BASE` no
-Vite, o `href` do favicon em `index.html` e o `BASE_PATH` do
-[`playwright.config.ts`](../playwright.config.ts).
+O Vite publica em `/karaokeJustGo/` por padrão, definido em
+[`vite.config.ts`](../vite.config.ts). O nome precisa bater com o do repositório. Se o
+repositório for renomeado, atualize esse padrão no Vite e no
+[`playwright.config.ts`](../playwright.config.ts). O favicon em `index.html` acompanha o
+`base` sozinho.
+
+A variável de build `BASE_PATH` (ou `VERCEL`) troca o caminho, para servir o app na raiz de um
+domínio. Ver [`VERCEL.md`](./VERCEL.md), que descreve a preparação da migração de hospedagem.
 
 O roteamento é por hash, então as rotas internas não dependem de reescrita no servidor. O
 `404.html` cobre apenas um acesso direto a um caminho inexistente.

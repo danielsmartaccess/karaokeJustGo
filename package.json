@@ -5,6 +5,9 @@
   "type": "module",
   "description": "Karaokê Just Go — plataforma de entretenimento para bares da Just Go Smart Access",
   "license": "UNLICENSED",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

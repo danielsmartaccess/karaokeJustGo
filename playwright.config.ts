@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// E2E roda o preview do build no base path do GitHub Pages.
-const BASE_PATH = '/karaokeJustGo/';
+// E2E roda o preview do build no base path do GitHub Pages por padrão.
+// BASE_PATH=/ valida o build como a Vercel o serve, na raiz do domínio.
+const BASE_PATH = process.env.BASE_PATH ?? '/karaokeJustGo/';
 const PORT = 4173;
 
 export default defineConfig({
