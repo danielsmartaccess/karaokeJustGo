@@ -27,7 +27,7 @@ backend (Supabase) não muda; só o frontend estático muda de endereço.
 | `vite.config.ts`       | `base` deixa de ser fixo: `BASE_PATH` → `/` se `VERCEL` → `/karaokeJustGo/` (padrão) |
 | `index.html`           | Favicon sem caminho fixo (`/favicon.svg`); o Vite aplica o `base` sozinho            |
 | `playwright.config.ts` | Lê `BASE_PATH`, para rodar o E2E como a Vercel serve (raiz do domínio)               |
-| `package.json`         | `engines.node = 22.x`: a Vercel usa 24.x por padrão, enquanto CI e local usam 22     |
+| `package.json`         | `engines.node = 22.x`: um projeto novo veio com 24.x (out/2026); CI e local usam 22  |
 | `.env.example`         | Documenta `BASE_PATH` e o risco da chave do YouTube no bundle                        |
 
 O build padrão (GitHub Pages) continua **byte a byte idêntico** ao anterior.
@@ -40,7 +40,7 @@ O build padrão (GitHub Pages) continua **byte a byte idêntico** ao anterior.
 | Root Directory   | `.` (raiz)               | Não é monorepo                                    |
 | Install Command  | padrão (`npm install`)   | A Vercel detecta o `package-lock.json`            |
 | Build Command    | padrão (`npm run build`) | `tsc -b && vite build`                            |
-| Output Directory | padrão (`dist`)          | Detectado pelo preset                             |
+| Output Directory | padrão (`dist`)          | Detectado pelo preset; confirmado no 1º deploy    |
 | Node.js          | 22.x                     | Fixado por `engines`; confira em Settings → Build |
 | `vercel.json`    | **não necessário**       | Ver abaixo                                        |
 
@@ -97,7 +97,10 @@ nem a copie para `VITE_KARAOKE_ROOM_SLUG`: isso trocaria a sala usada.
 
 - **Proteção.** Com a _Standard Protection_, os previews exigem login na Vercel; só os domínios
   de produção são públicos. Um preview não abre no celular de um participante nem na TV sem
-  login ou sem um link de compartilhamento/bypass configurado pelo dono da conta.
+  login ou sem um link de compartilhamento/bypass configurado pelo dono da conta. **Observado
+  em 2026-10-28:** o domínio de produção do projeto (`karaoke-just-go.vercel.app`) respondeu 200
+  sem credencial; as URLs específicas de cada deploy e da branch redirecionaram (302) para o
+  login.
 - **Preview escreve em produção.** O app tem **uma sala compartilhada** e o RLS aceita escrita
   anônima. Um preview com as chaves de produção grava na fila real. Por padrão, **não** atribua
   `VITE_SUPABASE_*` ao escopo Preview: o preview sobe em modo demo, sem tocar no banco.
@@ -121,6 +124,30 @@ nem a copie para `VITE_KARAOKE_ROOM_SLUG`: isso trocaria a sala usada.
   origem em que o telão foi aberto. Depois da troca, abra o telão e o Host **no endereço novo**.
 - As duas origens compartilham o mesmo Supabase e a mesma sala, então **interoperam** durante a
   transição: um participante no endereço antigo aparece no telão do novo.
+
+## Primeiro deploy (2026-10-28)
+
+Deploy de avaliação, **em modo demo**: o projeto tem só `BASE_PATH=/`, sem as chaves do Supabase.
+Nada foi enviado ao banco.
+
+| Item                | Resultado                                                                         |
+| ------------------- | --------------------------------------------------------------------------------- |
+| Projeto             | `karaoke-just-go`, ligado ao repositório; plano Hobby, conta pessoal              |
+| Origem do deploy    | Branch `feat/vercel-deployment`, commit `d5cfc2b`                                 |
+| Detecção            | Framework **Vite**; instalação `npm install` (591 pacotes); build `npm run build` |
+| Build               | 17 s; 1635 módulos; PWA com 8 entradas de precache                                |
+| Destino             | Saiu como **production**: a 1ª implantação de um projeto novo vira produção       |
+| Domínio de produção | `karaoke-just-go.vercel.app`, público                                             |
+
+Verificado com um Chromium real (Playwright) contra o deploy: as 10 requisições do próprio
+domínio responderam 200; sem erros de console; participante, telão (`#/telao`, com o player do
+YouTube) e Host (`#/host`, com o selo "Modo demo") renderizaram; o service worker registrou no
+escopo da raiz; `manifest` com `scope` e `start_url` iguais a `/`; `sw.js` com
+`must-revalidate`.
+
+**Não confirmado neste deploy:** a versão do Node usada no build (o log não a imprime; o
+projeto nasceu com 24.x e `engines` pede 22.x); a comunicação ao vivo com o Supabase; a
+instalação e a atualização do PWA; o comportamento num celular e na TV reais.
 
 ## Plano de publicação
 
@@ -218,7 +245,7 @@ vale revisá-las; isso não foi verificado, pois exigiria acesso ao Supabase rem
 ## Áudio no futuro
 
 - **No navegador** (Web Audio, AudioWorklet, WebAssembly): funciona em hospedagem estática.
-  O microfone exige HTTPS, que a Vercel fornece.
+  O microfone exige HTTPS; o deploy de 2026-10-28 foi servido com HTTPS e HSTS.
 - **WebAssembly com threads** (`SharedArrayBuffer`) exige `Cross-Origin-Opener-Policy` e
   `Cross-Origin-Embedder-Policy`. Isso demandaria um `vercel.json` com cabeçalhos e pode
   **quebrar os vídeos embutidos do YouTube**; é decisão de arquitetura a avaliar antes.
