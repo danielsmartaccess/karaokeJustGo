@@ -29,6 +29,16 @@ Em **Settings → Secrets and variables → Actions**:
 > Se `VITE_KARAOKE_ROOM_SLUG` não estiver definida, o app usa `just-go` como padrão.
 > Se as duas primeiras faltarem, o build sai em **modo demo** e nada é compartilhado entre
 > dispositivos. É o sintoma a checar primeiro se a fila não aparece na TV.
+>
+> **Divergência conhecida entre o código e o workflow.** O código lê `VITE_KARAOKE_ROOM_SLUG`
+> ([`src/lib/supabase.ts`](../src/lib/supabase.ts)), mas o passo de build do
+> [`ci.yml`](../.github/workflows/ci.yml) injeta `VITE_DEFAULT_VENUE_SLUG`, que nenhum arquivo
+> de `src/` lê. Na prática, cadastrar `VITE_KARAOKE_ROOM_SLUG` em _Actions → Variables_ **não
+> tem efeito** no build do GitHub Pages, porque a variável não chega ao Vite. Como o código
+> recorre a `just-go` quando `VITE_KARAOKE_ROOM_SLUG` está ausente ou vazia, a produção usa
+> hoje sempre a sala `just-go`. Trocar de sala nesse pipeline exige corrigir o `ci.yml`, o que
+> não foi feito. Na Vercel, a variável correta é `VITE_KARAOKE_ROOM_SLUG`
+> (ver [`VERCEL.md`](./VERCEL.md)).
 
 ## Base path
 
