@@ -4,9 +4,19 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 
-// GitHub Pages serve o app em https://<user>.github.io/karaokeJustGo/
-// O base path precisa bater com o nome do repositório.
-const BASE = '/karaokeJustGo/';
+// Base path público do app, na ordem de precedência:
+//   1. BASE_PATH, quando definida (ex.: BASE_PATH=/ para servir na raiz do domínio);
+//   2. '/' quando o build roda na Vercel (variável de sistema VERCEL);
+//   3. '/karaokeJustGo/', o padrão do GitHub Pages, que serve o app em
+//      https://<user>.github.io/karaokeJustGo/ e exige que o caminho bata com
+//      o nome do repositório.
+const BASE = process.env.BASE_PATH ?? (process.env.VERCEL ? '/' : '/karaokeJustGo/');
+
+// O manifest do PWA (scope e start_url) usa BASE como está; sem as barras nas
+// pontas ele sairia inválido sem nenhum erro de build.
+if (!/^\/([^/]+\/)*$/.test(BASE)) {
+  throw new Error(`BASE_PATH inválida: "${BASE}". Use "/" ou um caminho como "/app/".`);
+}
 
 export default defineConfig({
   base: BASE,

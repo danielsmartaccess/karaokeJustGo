@@ -86,6 +86,54 @@ dispositivo calcula os segundos restantes a partir do próprio relógio e do mes
 `screen_expires_at` vindo do banco. Quando o prazo vence, todos voltam ao karaokê sozinhos,
 sem ninguém precisar escrever "acabou" no banco.
 
+## A tela do telão e o espelho do Host
+
+A tela do telão tem **uma única implementação**,
+[`TelaoScreen`](../src/components/telao/TelaoScreen.tsx), usada em dois lugares:
+
+| Onde                  | Variante | Como renderiza                                                       |
+| --------------------- | -------- | -------------------------------------------------------------------- |
+| Rota `#/telao` (a TV) | `tv`     | Ocupa a janela inteira                                               |
+| Aba Telão do Host     | `mirror` | A mesma tela numa área de 1920x1080, reduzida por `transform: scale` |
+
+Antes, o preview do Host era uma segunda implementação, desenhada à mão em miniatura, e
+divergia da TV em tudo: sem cabeçalho, sem contador, sem o rótulo do aviso, sem o título da
+publicidade. Duas implementações sempre divergem. Com uma só, o que o Host vê é o que a TV
+mostra por construção.
+
+Os tamanhos responsivos da tela usam **consultas de contêiner** (`@3xl`, `@5xl`, `@7xl`, os
+mesmos 768, 1024 e 1280 px de `md`, `lg` e `xl`), medidas na largura da própria tela, e não da
+janela do navegador. É isso que faz o espelho, reduzido num painel pequeno ou aberto num
+tablet, renderizar como uma TV Full HD. Por isso o espelho **não** usa classes `md:`, `lg:` ou
+`xl:`.
+
+**A única diferença é o vídeo.** O espelho mostra a miniatura da música no lugar do player do
+YouTube. Um segundo player consumiria a internet do bar junto com o da TV e tocaria áudio no
+notebook do Host. Não é possível sincronizá-lo com precisão de quadro: o início da música só é
+guardado como horário (`HH:MM`), e os relógios dos aparelhos não são sincronizados.
+
+Quem mexer na tela do telão mexe nos dois ao mesmo tempo. O teste
+`telao-screen.test.tsx` falha se TV e espelho passarem a mostrar textos diferentes.
+
+## Convergência entre dispositivos
+
+Cada aparelho mantém a sua cópia do estado e a corrige relendo a sala quando o banco avisa de
+uma mudança. Três mecanismos evitam que um aparelho fique mostrando um estado velho:
+
+1. **Leituras em ordem.** Uma mudança pode disparar duas leituras (iniciar uma música atualiza
+   duas linhas). Se a mais antiga terminasse por último, sobrescreveria o estado novo com um
+   velho. [`createLatestGate`](../src/lib/latestGate.ts) descarta a resposta antiga quando uma
+   mais nova já foi aplicada.
+2. **Releitura ao reconectar.** Ao (re)assinar o canal, o aparelho relê a sala. Cobre o que
+   mudou entre a leitura inicial e a assinatura, e o que se perdeu numa queda de rede.
+3. **Releitura periódica.** A cada 20 s, ao voltar para a aba e ao recuperar a rede. O realtime
+   não repete avisos perdidos; sem isto, uma TV que dormiu ficava errada até alguém mexer na
+   sala de novo.
+
+O painel do Host mostra a hora da última sincronização ao lado do preview. **Limite conhecido:**
+telão e Host calculam o contador a partir do relógio de cada aparelho. Se os relógios divergirem,
+o contador diverge.
+
 ## Chamada pelo WhatsApp
 
 `src/lib/whatsapp.ts` monta um link `wa.me` com o telefone normalizado e a mensagem
@@ -140,6 +188,7 @@ src/
   components/
     Logo.tsx                   marca oficial, servida de public/
     SearchBar · SongCard · HistoryTable · EmptyState · ErrorMessage · QRCodeDisplay
+    telao/                     TelaoScreen (tela única da TV) · TelaoMirror (espelho do Host)
     ui/                        Button · Badge · Modal
   data/
     karaokeCatalog.ts          GERADO — catálogo verificado de karaokê

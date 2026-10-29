@@ -373,7 +373,11 @@ export async function applyAction(
 }
 
 /** Assina as mudanças da sala. Devolve a função de cancelamento. */
-export function subscribeToRoom(roomId: string, onChange: () => void): () => void {
+export function subscribeToRoom(
+  roomId: string,
+  onChange: () => void,
+  onStatus?: (status: string) => void,
+): () => void {
   const supabase = getSupabase();
   const channel = supabase
     .channel(`karaoke-room-${roomId}`)
@@ -402,7 +406,7 @@ export function subscribeToRoom(roomId: string, onChange: () => void): () => voi
       { event: '*', schema: 'public', table: 'karaoke_rooms', filter: `id=eq.${roomId}` },
       onChange,
     )
-    .subscribe();
+    .subscribe((status) => onStatus?.(status));
 
   return () => {
     void supabase.removeChannel(channel);

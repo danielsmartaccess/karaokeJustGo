@@ -20,22 +20,39 @@ Não há passo manual. Merge em `main` é o deploy.
 
 Em **Settings → Secrets and variables → Actions**:
 
-| Nome                     | Tipo     | Valor                                      |
-| ------------------------ | -------- | ------------------------------------------ |
-| `VITE_SUPABASE_URL`      | Secret   | `https://ghtltnxrmskllagitiap.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | Secret   | Chave publicável (nunca a `service_role`)  |
-| `VITE_KARAOKE_ROOM_SLUG` | Variable | `just-go`                                  |
+| Nome                     | Tipo                | Valor                                      |
+| ------------------------ | ------------------- | ------------------------------------------ |
+| `VITE_SUPABASE_URL`      | Secret              | `https://ghtltnxrmskllagitiap.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Secret              | Chave publicável (nunca a `service_role`)  |
+| `VITE_KARAOKE_ROOM_SLUG` | Variable (opcional) | `just-go`                                  |
 
 > Se `VITE_KARAOKE_ROOM_SLUG` não estiver definida, o app usa `just-go` como padrão.
 > Se as duas primeiras faltarem, o build sai em **modo demo** e nada é compartilhado entre
 > dispositivos. É o sintoma a checar primeiro se a fila não aparece na TV.
+>
+> **Histórico da variável da sala.** O código lê `VITE_KARAOKE_ROOM_SLUG`
+> ([`src/lib/supabase.ts`](../src/lib/supabase.ts)). Até esta correção, o passo de build do
+> [`ci.yml`](../.github/workflows/ci.yml) injetava `VITE_DEFAULT_VENUE_SLUG`, que nenhum arquivo
+> de `src/` lê, então a variável documentada acima nunca chegava ao build. Agora o `ci.yml`
+> injeta `VITE_KARAOKE_ROOM_SLUG`, vinda de _Actions → Variables_.
+>
+> Em 2026-10-28 essa variável **não existe** no repositório, então o build usa o padrão
+> `just-go`, o mesmo comportamento de antes. Existe uma variável antiga,
+> `VITE_DEFAULT_VENUE_SLUG`, herdada do modelo anterior do produto e com o valor de outro
+> estabelecimento. O código não a lê e **ela não deve ser copiada para
+> `VITE_KARAOKE_ROOM_SLUG`**, porque isso trocaria a sala usada em produção. Na Vercel, a
+> variável correta também é `VITE_KARAOKE_ROOM_SLUG` (ver [`VERCEL.md`](./VERCEL.md)).
 
 ## Base path
 
-O Vite publica em `/karaokeJustGo/`, definido em [`vite.config.ts`](../vite.config.ts). O
-nome precisa bater com o do repositório. Se o repositório for renomeado, atualize `BASE` no
-Vite, o `href` do favicon em `index.html` e o `BASE_PATH` do
-[`playwright.config.ts`](../playwright.config.ts).
+O Vite publica em `/karaokeJustGo/` por padrão, definido em
+[`vite.config.ts`](../vite.config.ts). O nome precisa bater com o do repositório. Se o
+repositório for renomeado, atualize esse padrão no Vite e no
+[`playwright.config.ts`](../playwright.config.ts). O favicon em `index.html` acompanha o
+`base` sozinho.
+
+A variável de build `BASE_PATH` (ou `VERCEL`) troca o caminho, para servir o app na raiz de um
+domínio. Ver [`VERCEL.md`](./VERCEL.md), que descreve a preparação da migração de hospedagem.
 
 O roteamento é por hash, então as rotas internas não dependem de reescrita no servidor. O
 `404.html` cobre apenas um acesso direto a um caminho inexistente.

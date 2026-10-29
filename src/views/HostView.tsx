@@ -6,6 +6,7 @@ import Badge from '../components/ui/Badge';
 import HistoryTable from '../components/HistoryTable';
 import EmptyState from '../components/EmptyState';
 import Logo from '../components/Logo';
+import { TelaoMirror, MirrorSyncStatus } from '../components/telao/TelaoMirror';
 import { QRCodeSVG } from 'qrcode.react';
 import { participantUrl } from '../lib/urls';
 import { buildWhatsAppUrl, openWhatsApp } from '../lib/whatsapp';
@@ -147,135 +148,6 @@ function WhatsAppCallButton({
       {jaAvisado ? <Check className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
       {jaAvisado ? `Chamado ${entry.notifiedAt}` : 'Chamar'}
     </button>
-  );
-}
-
-/**
- * Miniatura do que a TV está exibindo neste instante.
- *
- * Lê o mesmo estado que o modo palco, em vez de receber só o conteúdo
- * temporário. Antes o modo karaokê mostrava um participante fixo escrito no
- * código ("Ana — Evidências") e o preview nunca acompanhava a apresentação
- * real nem o telão desligado: o Host olhava para uma figura decorativa
- * acreditando estar conferindo a TV.
- */
-function TelaoPreview({ content }: { content: ScreenContent | null }) {
-  const { state } = useKaraoke();
-  const { currentPlaying, queue } = state;
-  const isOnline = state.telao?.isOnline ?? true;
-
-  const type = content?.type ?? 'karaoke';
-  const meta = CONTENT_TYPE_META[type];
-
-  // Telão desligado sobrepõe qualquer conteúdo — é o que a TV mostra.
-  if (!isOnline) {
-    return (
-      <div className="relative w-full aspect-video bg-[#06000e] border border-red-900/40 rounded-xl overflow-hidden flex flex-col items-center justify-center gap-1">
-        <span className="text-2xl opacity-30">📺</span>
-        <p className="text-red-400/80 font-display font-bold text-xs">Telão Offline</p>
-        <p className="text-slate-700 text-[9px]">Desconectado pelo Host</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative w-full aspect-video bg-[#07070f] border border-slate-700 rounded-xl overflow-hidden">
-      {/* Scanline overlay for TV feel */}
-      <div className="absolute inset-0 pointer-events-none z-10 bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(0,0,0,0.03)_2px,rgba(0,0,0,0.03)_4px)]" />
-
-      {type === 'karaoke' &&
-        (currentPlaying ? (
-          <div className="absolute inset-0 flex flex-col">
-            {/* Mesma composição do palco: vídeo ocupando a tela, identidade embaixo */}
-            <div className="absolute inset-0 bg-black">
-              <img
-                src={currentPlaying.song.thumbnail}
-                alt=""
-                className="w-full h-full object-cover opacity-70"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.visibility = 'hidden';
-                }}
-              />
-            </div>
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-3 pt-8 pb-2.5">
-              <div className="text-[8px] font-mono text-pink-400 tracking-[0.25em] uppercase mb-0.5">
-                ▶ Agora Cantando
-              </div>
-              <div
-                className="font-display font-black text-white leading-none truncate"
-                style={{ fontSize: 'clamp(11px, 3vw, 20px)' }}
-              >
-                {currentPlaying.participant}
-              </div>
-              <div className="text-pink-300 truncate" style={{ fontSize: 'clamp(8px, 2vw, 12px)' }}>
-                {currentPlaying.song.title}
-              </div>
-            </div>
-            {queue.length > 0 && (
-              <div className="absolute top-2 left-3 text-[8px] font-mono text-slate-400 bg-black/50 rounded px-1.5 py-0.5 backdrop-blur-sm">
-                Próximo: {queue[0].participant}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <span className="text-2xl opacity-20">🎤</span>
-            <p className="text-slate-600 font-display font-bold text-xs">Aguardando início</p>
-            <p className="text-slate-700 text-[9px]">Nenhuma apresentação em andamento</p>
-          </div>
-        ))}
-
-      {type === 'cta' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-[#07070f]">
-          <div style={{ fontSize: 'clamp(16px, 5vw, 32px)' }}>
-            {content?.content?.split(' ')[0]}
-          </div>
-          <div
-            className="text-white font-display font-black text-center leading-tight mt-1"
-            style={{ fontSize: 'clamp(7px, 2vw, 13px)' }}
-          >
-            {content?.title}
-          </div>
-        </div>
-      )}
-
-      {type === 'notice' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#07070f] border-2 border-amber-500/40">
-          <div
-            className="text-amber-400 font-display font-black text-center"
-            style={{ fontSize: 'clamp(7px, 2vw, 13px)' }}
-          >
-            📣 {content?.title}
-          </div>
-        </div>
-      )}
-
-      {type === 'ad' && content?.imageUrl && (
-        <img
-          src={content.imageUrl}
-          alt={content.title}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      )}
-
-      {type === 'qrcode' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#06000e] gap-2 p-3">
-          <div className="bg-white p-2 rounded-lg">
-            <QRCodeSVG value={participantUrl()} size={60} fgColor="#06000e" bgColor="#ffffff" />
-          </div>
-          <p className="text-green-400 text-[9px] font-mono text-center">
-            Escaneie para participar
-          </p>
-        </div>
-      )}
-
-      {/* Type badge */}
-      <div
-        className={`absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border ${meta.bg} ${meta.color}`}
-      >
-        {meta.emoji} {meta.label}
-      </div>
-    </div>
   );
 }
 
@@ -812,12 +684,19 @@ function TelaoTab() {
       {/* Current status */}
       <TelaoStatusCard />
 
-      {/* Preview */}
+      {/* Espelho: a mesma tela da TV (TelaoScreen), em escala reduzida */}
       <div>
-        <h3 className="text-xs font-mono text-slate-500 uppercase tracking-widest mb-3">
-          Preview do Telão
-        </h3>
-        <TelaoPreview content={currentContent} />
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h3 className="text-xs font-mono text-slate-500 uppercase tracking-widest">
+            Preview do Telão
+          </h3>
+          <MirrorSyncStatus />
+        </div>
+        <TelaoMirror />
+        <p className="text-slate-600 text-xs mt-2">
+          É a mesma tela do telão, em escala reduzida. O vídeo aparece como imagem fixa para não
+          gastar a internet do bar.
+        </p>
       </div>
 
       {/* Return to karaoke */}
