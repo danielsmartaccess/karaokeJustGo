@@ -247,3 +247,33 @@ Verificado na documentação oficial do Supabase em 2026-10-28:
 - O estado das tabelas antigas (`tenants`, `venues`, etc.) no banco remoto, antes de escolher os
   nomes de `bars` e afins.
 - O limite de projetos gratuitos da organização, para criar a homologação.
+
+## 13. Protótipo navegável (modo demonstração)
+
+Existe um **protótipo clicável** das três telas, para ver e validar o fluxo antes da Fase 0. Ele
+**não é o sistema**: não há banco, login nem segredo da comanda.
+
+| Rota        | Tela                                                                      |
+| ----------- | ------------------------------------------------------------------------- |
+| `#/comanda` | Cliente: abre a comanda com nome e celular e acompanha o consumo          |
+| `#/garcom`  | Garçom: busca, confirma o celular, lança itens com autocomplete e estorna |
+| `#/gerente` | Gerente: consumo por dia, curadoria do catálogo e ativação da equipe      |
+
+**O que o protótipo faz de verdade:** as regras de `src/comandas/rules.ts` (dia de serviço, uma
+comanda por celular por dia, livro-razão de itens com estorno, busca por código, final do celular
+ou nome, digitação rápida `3 chopp`, itens novos viram sugestão, junção de duplicatas). Elas têm
+34 testes unitários e um E2E que atravessa os três papéis.
+
+**O que é simulado:**
+
+- Os dados ficam em `localStorage` do navegador, com dados fictícios, e acompanham as outras abas
+  **do mesmo navegador** (abra "Cliente" numa aba e "Garçom" noutra). **Não são compartilhados entre
+  aparelhos.**
+- O "login" da equipe é só escolher o nome. Na versão real, e-mail e senha com aprovação do gerente.
+- O segredo da comanda não existe: a comanda do cliente é um ponteiro no aparelho.
+- O garçom vê só o final do celular e o gerente vê o número inteiro (isso já segue o desenho).
+- O botão "Reiniciar demonstração" restaura os dados fictícios.
+
+**Onde está o código:** `src/comandas/` (carregado sob demanda: quem abre o telão não baixa esse
+código). O provedor das comandas é separado do provedor do karaokê, então a sala do karaokê **não
+abre conexão** quando só se usa a comanda.

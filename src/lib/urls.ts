@@ -11,6 +11,9 @@ export const ROUTES: Record<AppView, string> = {
   participant: '#/',
   tv: '#/telao',
   host: '#/host',
+  comanda: '#/comanda',
+  garcom: '#/garcom',
+  gerente: '#/gerente',
 };
 
 const HASH_TO_VIEW: Record<string, AppView> = {
@@ -19,7 +22,15 @@ const HASH_TO_VIEW: Record<string, AppView> = {
   '#': 'participant',
   '#/telao': 'tv',
   '#/host': 'host',
+  '#/comanda': 'comanda',
+  '#/garcom': 'garcom',
+  '#/gerente': 'gerente',
 };
+
+/** As telas de comanda são um produto à parte do karaokê: outro provedor, outro módulo. */
+export function isComandaView(view: AppView): boolean {
+  return view === 'comanda' || view === 'garcom' || view === 'gerente';
+}
 
 export function viewFromHash(hash: string): AppView {
   return HASH_TO_VIEW[hash] ?? 'participant';
