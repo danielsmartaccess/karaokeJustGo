@@ -287,6 +287,7 @@ export function addItem(
     catalogItemId: used.id,
     nameSnapshot: used.name,
     qty: input.qty,
+    unitPriceCents: used.priceCents,
     addedBy: input.by,
     createdAt: now,
   };
@@ -296,23 +297,42 @@ export function addItem(
   };
 }
 
-/** Estorno: nova linha negativa apontando para a original (uma vez por linha). */
+/** Unidades de uma linha que ainda não foram estornadas. */
+export function remainingQty(state: ComandaState, item: TabItem): number {
+  if (item.qty <= 0) return 0;
+  const reversed = state.items
+    .filter((i) => i.reversesItemId === item.id)
+    .reduce((sum, i) => sum - i.qty, 0);
+  return item.qty - reversed;
+}
+
+/**
+ * Estorno: nova linha negativa apontando para a original. Pode ser parcial (o
+ * "−" do garçom tira uma unidade de uma linha de três); sem `qty`, estorna tudo
+ * o que resta. A linha original nunca é alterada.
+ */
 export function reverseItem(
   state: ComandaState,
   itemId: string,
   by: string,
   now: number,
+  qty?: number,
 ): Result<{ ok: boolean }> {
   const original = state.items.find((i) => i.id === itemId);
-  if (!original || original.qty <= 0) return { state, result: { ok: false } };
-  if (state.items.some((i) => i.reversesItemId === itemId)) return { state, result: { ok: false } };
+  if (!original) return { state, result: { ok: false } };
+  const left = remainingQty(state, original);
+  const amount = qty ?? left;
+  if (left <= 0 || !Number.isInteger(amount) || amount < 1 || amount > left) {
+    return { state, result: { ok: false } };
+  }
 
   const reversal: TabItem = {
     id: newId('item'),
     tabId: original.tabId,
     catalogItemId: original.catalogItemId,
     nameSnapshot: original.nameSnapshot,
-    qty: -original.qty,
+    qty: -amount,
+    unitPriceCents: original.unitPriceCents,
     reversesItemId: original.id,
     addedBy: by,
     createdAt: now,
@@ -320,19 +340,50 @@ export function reverseItem(
   return { state: { ...state, items: [...state.items, reversal] }, result: { ok: true } };
 }
 
-/** Consumo agrupado ("3× Chopp"), já descontados os estornos e as junções. */
+/** Tira UMA unidade do item na comanda, da linha mais recente que ainda tem saldo (o "−" do cardápio). */
+export function removeOne(
+  state: ComandaState,
+  tabId: string,
+  catalogItemId: string,
+  by: string,
+  now: number,
+): Result<{ ok: boolean }> {
+  const key = (id: string) => resolveCatalogItem(state.catalog, id)?.id ?? id;
+  const line = state.items
+    .filter(
+      (i) =>
+        i.tabId === tabId &&
+        i.qty > 0 &&
+        key(i.catalogItemId) === key(catalogItemId) &&
+        remainingQty(state, i) > 0,
+    )
+    .sort((a, b) => b.createdAt - a.createdAt)[0];
+  if (!line) return { state, result: { ok: false } };
+  return reverseItem(state, line.id, by, now, 1);
+}
+
+/** Consumo agrupado ("3× Chopp"), já descontados os estornos e as junções, com o total em reais. */
 export function summarizeItems(state: ComandaState, tabId: string): ItemSummaryLine[] {
-  const totals = new Map<string, number>();
+  const groups = new Map<string, { qty: number; totalCents: number; unpricedQty: number }>();
   for (const item of state.items.filter((i) => i.tabId === tabId)) {
-    const target = resolveCatalogItem(state.catalog, item.catalogItemId);
-    const key = target?.id ?? item.catalogItemId;
-    totals.set(key, (totals.get(key) ?? 0) + item.qty);
+    const resolved = resolveCatalogItem(state.catalog, item.catalogItemId);
+    const key = resolved?.id ?? item.catalogItemId;
+    const g = groups.get(key) ?? { qty: 0, totalCents: 0, unpricedQty: 0 };
+    g.qty += item.qty;
+    // O preço da hora protege vendas que já tinham preço. Venda feita SEM preço usa o
+    // preço atual do catálogo, para que precificar depois feche a conta do dia.
+    const unit = item.unitPriceCents ?? resolved?.priceCents;
+    if (unit === undefined) g.unpricedQty += item.qty;
+    else g.totalCents += item.qty * unit;
+    groups.set(key, g);
   }
-  return [...totals.entries()]
-    .filter(([, qty]) => qty > 0)
-    .map(([catalogItemId, qty]) => ({
+  return [...groups.entries()]
+    .filter(([, g]) => g.qty > 0)
+    .map(([catalogItemId, g]) => ({
       catalogItemId,
-      qty,
+      qty: g.qty,
+      totalCents: g.totalCents,
+      unpricedQty: g.unpricedQty,
       name:
         resolveCatalogItem(state.catalog, catalogItemId)?.name ??
         state.items.find((i) => i.catalogItemId === catalogItemId)?.nameSnapshot ??
@@ -343,6 +394,175 @@ export function summarizeItems(state: ComandaState, tabId: string): ItemSummaryL
 
 export function totalUnits(lines: ItemSummaryLine[]): number {
   return lines.reduce((sum, l) => sum + l.qty, 0);
+}
+
+/** Total parcial da comanda. Unidades sem preço ficam de fora e são contadas à parte. */
+export function tabTotals(
+  state: ComandaState,
+  tabId: string,
+): { units: number; totalCents: number; unpricedUnits: number } {
+  const lines = summarizeItems(state, tabId);
+  return {
+    units: totalUnits(lines),
+    totalCents: lines.reduce((sum, l) => sum + l.totalCents, 0),
+    unpricedUnits: lines.reduce((sum, l) => sum + l.unpricedQty, 0),
+  };
+}
+
+// --- Venda sugestiva ----------------------------------------------------------
+
+export interface Pairing {
+  item: CatalogItem;
+  /** Item da comanda atual que mais puxa esta sugestão ("costuma sair com Chopp"). */
+  because: string;
+  /** Em quantas outras comandas os dois apareceram juntos. */
+  tabs: number;
+}
+
+/**
+ * "Costuma sair junto": itens que, nas outras comandas, apareceram junto com o
+ * que esta comanda já tem, e que esta ainda não tem. Contagem simples de
+ * coocorrência por comanda, sem modelo: transparente e fácil de explicar ao bar.
+ * (Protótipo: recalcula o consumo de cada comanda; o banco real agregaria.)
+ */
+export function suggestPairings(state: ComandaState, tabId: string, limit = 3): Pairing[] {
+  const mine = summarizeItems(state, tabId).map((l) => l.catalogItemId);
+  if (mine.length === 0) return [];
+  const mineSet = new Set(mine);
+
+  const score = new Map<string, { tabs: number; because: Map<string, number> }>();
+  for (const tab of state.tabs) {
+    if (tab.id === tabId || tab.voidedAt) continue;
+    const ids = new Set(summarizeItems(state, tab.id).map((l) => l.catalogItemId));
+    const shared = mine.filter((m) => ids.has(m));
+    if (shared.length === 0) continue;
+    for (const id of ids) {
+      if (mineSet.has(id)) continue;
+      const s = score.get(id) ?? { tabs: 0, because: new Map<string, number>() };
+      s.tabs += 1;
+      for (const m of shared) s.because.set(m, (s.because.get(m) ?? 0) + 1);
+      score.set(id, s);
+    }
+  }
+
+  const out: Pairing[] = [];
+  for (const [id, s] of score) {
+    const item = state.catalog.find((c) => c.id === id);
+    if (!item || item.status === 'archived' || item.mergedInto) continue;
+    const bestId = [...s.because.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    out.push({
+      item,
+      tabs: s.tabs,
+      because: state.catalog.find((c) => c.id === bestId)?.name ?? '',
+    });
+  }
+  return out.sort((a, b) => b.tabs - a.tabs || b.item.useCount - a.item.useCount).slice(0, limit);
+}
+
+// --- Cardápio rápido ------------------------------------------------------------
+
+export interface MenuCategory {
+  category: string;
+  items: CatalogItem[];
+}
+
+/** Itens vivos agrupados por categoria; a categoria e os itens mais vendidos vêm primeiro. */
+export function menuByCategory(catalog: CatalogItem[]): MenuCategory[] {
+  const groups = new Map<string, CatalogItem[]>();
+  for (const c of catalog.filter((x) => x.status !== 'archived' && !x.mergedInto)) {
+    groups.set(c.category, [...(groups.get(c.category) ?? []), c]);
+  }
+  const use = (items: CatalogItem[]) => items.reduce((sum, c) => sum + c.useCount, 0);
+  return [...groups.entries()]
+    .map(([category, items]) => ({
+      category,
+      items: [...items].sort(
+        (a, b) => b.useCount - a.useCount || a.name.localeCompare(b.name, 'pt-BR'),
+      ),
+    }))
+    .sort((a, b) => use(b.items) - use(a.items) || a.category.localeCompare(b.category, 'pt-BR'));
+}
+
+// --- Relatório de vendas (gerente) ---------------------------------------------
+
+export interface SalesLine {
+  catalogItemId: string;
+  name: string;
+  units: number;
+  revenueCents: number;
+}
+
+export interface SalesReport {
+  tabs: number;
+  units: number;
+  /** Faturamento parcial: só o que tem preço. */
+  revenueCents: number;
+  unpricedUnits: number;
+  /** Ticket médio entre as comandas que têm valor. */
+  avgTicketCents: number;
+  unitsPerTab: number;
+  top: SalesLine[];
+  /** Itens vendidos sem preço: o gerente precisa precificar para o faturamento fechar. */
+  unpricedItems: SalesLine[];
+}
+
+export function salesReport(state: ComandaState, day: string): SalesReport {
+  const tabs = state.tabs.filter((t) => t.serviceDay === day && !t.voidedAt);
+  const byItem = new Map<string, SalesLine & { unpriced: number }>();
+  let revenueCents = 0;
+  let units = 0;
+  let unpricedUnits = 0;
+  let tabsWithRevenue = 0;
+
+  for (const tab of tabs) {
+    let tabRevenue = 0;
+    for (const line of summarizeItems(state, tab.id)) {
+      const entry = byItem.get(line.catalogItemId) ?? {
+        catalogItemId: line.catalogItemId,
+        name: line.name,
+        units: 0,
+        revenueCents: 0,
+        unpriced: 0,
+      };
+      entry.units += line.qty;
+      entry.revenueCents += line.totalCents;
+      entry.unpriced += line.unpricedQty;
+      byItem.set(line.catalogItemId, entry);
+      units += line.qty;
+      unpricedUnits += line.unpricedQty;
+      tabRevenue += line.totalCents;
+    }
+    revenueCents += tabRevenue;
+    if (tabRevenue > 0) tabsWithRevenue += 1;
+  }
+
+  const all = [...byItem.values()];
+  return {
+    tabs: tabs.length,
+    units,
+    revenueCents,
+    unpricedUnits,
+    avgTicketCents: tabsWithRevenue > 0 ? Math.round(revenueCents / tabsWithRevenue) : 0,
+    unitsPerTab: tabs.length > 0 ? units / tabs.length : 0,
+    top: all
+      .map((e) => ({
+        catalogItemId: e.catalogItemId,
+        name: e.name,
+        units: e.units,
+        revenueCents: e.revenueCents,
+      }))
+      .sort((a, b) => b.units - a.units || b.revenueCents - a.revenueCents)
+      .slice(0, 8),
+    unpricedItems: all
+      .filter((e) => e.unpriced > 0)
+      .map((e) => ({
+        catalogItemId: e.catalogItemId,
+        name: e.name,
+        units: e.unpriced,
+        revenueCents: 0,
+      }))
+      .sort((a, b) => b.units - a.units),
+  };
 }
 
 // --- Curadoria do catálogo (gerente) -----------------------------------------
@@ -390,7 +610,12 @@ export function mergeCatalogItem(
   };
 }
 
-export function addCatalogItem(state: ComandaState, name: string, category: string): ComandaState {
+export function addCatalogItem(
+  state: ComandaState,
+  name: string,
+  category: string,
+  priceCents?: number,
+): ComandaState {
   const clean = name.trim().replace(/\s+/g, ' ');
   if (clean === '') return state;
   const normalized = normalizeName(clean);
@@ -401,10 +626,36 @@ export function addCatalogItem(state: ComandaState, name: string, category: stri
     name: clean,
     normalized,
     category: category.trim() || 'Outros',
+    priceCents,
     status: 'approved',
     useCount: 0,
   };
   return { ...state, catalog: [...state.catalog, item] };
+}
+
+/** Define (ou limpa, com `undefined`) o preço de um item. Vendas já lançadas mantêm o preço da hora. */
+export function setCatalogPrice(
+  state: ComandaState,
+  id: string,
+  priceCents: number | undefined,
+): ComandaState {
+  if (priceCents !== undefined && (!Number.isInteger(priceCents) || priceCents < 0)) return state;
+  return mapCatalog(state, id, (c) => ({ ...c, priceCents }));
+}
+
+/**
+ * Converte o que o gerente digita em centavos: "12,50", "12.5", "R$ 8", "1.250,00".
+ * Vazio devolve `undefined` (limpa o preço); texto inválido também.
+ */
+export function parsePriceCents(text: string): number | undefined {
+  const s = text.replace(/R\$/gi, '').replace(/\s/g, '');
+  if (s === '') return undefined;
+  let n: number;
+  if (s.includes(',')) n = Number(s.replace(/\./g, '').replace(',', '.'));
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) n = Number(s.replace(/\./g, ''));
+  else n = Number(s);
+  if (!Number.isFinite(n) || n < 0 || n > 100000) return undefined;
+  return Math.round(n * 100);
 }
 
 // --- Equipe -------------------------------------------------------------------

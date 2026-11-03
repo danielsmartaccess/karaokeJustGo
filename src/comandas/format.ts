@@ -11,6 +11,16 @@ export function maskedPhone(last4?: string): string {
   return last4 ? `•••• ${last4}` : 'sem celular';
 }
 
+/** 1250 -> "R$ 12,50". Dinheiro circula em centavos inteiros; só aqui vira texto. */
+export function formatBRL(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** "R$ 12,00" ou "sem preço", para itens ainda não precificados. */
+export function formatPrice(cents?: number): string {
+  return cents === undefined ? 'sem preço' : formatBRL(cents);
+}
+
 export function formatClock(ms: number): string {
   return new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }

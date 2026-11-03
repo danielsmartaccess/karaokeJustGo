@@ -10,22 +10,27 @@
 
 ## 1. Escopo e decisões
 
-| Tema              | Decisão                                                                          |
-| ----------------- | -------------------------------------------------------------------------------- |
-| O que é a comanda | **Só anotação** de itens consumidos. Sem preço, sem fechamento, sem pagamento    |
-| Quem usa          | Cliente (abre), garçom (lança e confirma), gerente (relatório e catálogo)        |
-| Quando abre       | **Mesmo fora do dia de karaokê.** Fluxo próprio, independente da sala do karaokê |
-| Identificação     | Cliente informa **nome e celular**; **o garçom confirma** na mesa. Sem código    |
-| Busca do garçom   | Código da comanda, 4 últimos dígitos do celular ou nome                          |
-| Validade          | **A comanda só vale no dia** (dia de serviço); nada atravessa dias               |
-| Dados do cliente  | **Nome e telefone são guardados para sempre**                                    |
-| Catálogo de itens | **O gerente cura.** O garçom pode sugerir itens novos                            |
-| Dispositivos      | Garçom e gerente usam o **próprio celular ou o computador**                      |
-| Ambiente          | **Sem Docker.** A homologação é um projeto Supabase remoto, separado da produção |
-| Piloto            | Armazém Anita                                                                    |
+| Tema              | Decisão                                                                                             |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| O que é a comanda | Anotação de itens consumidos **com preço e total parcial**; sem fechamento nem pagamento no sistema |
+| Quem usa          | Cliente (abre), garçom (lança e confirma), gerente (relatório e catálogo)                           |
+| Quando abre       | **Mesmo fora do dia de karaokê.** Fluxo próprio, independente da sala do karaokê                    |
+| Identificação     | Cliente informa **nome e celular**; **o garçom confirma** na mesa. Sem código                       |
+| Busca do garçom   | Código da comanda, 4 últimos dígitos do celular ou nome                                             |
+| Validade          | **A comanda só vale no dia** (dia de serviço); nada atravessa dias                                  |
+| Dados do cliente  | **Nome e telefone são guardados para sempre**                                                       |
+| Catálogo de itens | **O gerente cura.** O garçom pode sugerir itens novos                                               |
+| Dispositivos      | Garçom e gerente usam o **próprio celular ou o computador**                                         |
+| Ambiente          | **Sem Docker.** A homologação é um projeto Supabase remoto, separado da produção                    |
+| Piloto            | Armazém Anita                                                                                       |
 
-**Fora do escopo agora:** preço, total em dinheiro, fechamento, exportação para o caixa,
-pagamento e nota fiscal. O desenho não os impede: o preço entra depois como coluna nova.
+**Atualização (2026-11-03):** o preço entrou no protótipo (preço por item no catálogo, preço
+gravado em cada lançamento, total parcial e relatório de vendas), porque pedido pelo cliente,
+pagamento e venda sugestiva dependem dele. O total é **parcial e sujeito a conferência no caixa**.
+
+**Fora do escopo agora:** fechamento da conta no sistema, taxa de serviço, desconto, exportação para
+o caixa, pedido pelo cliente, pagamento (Pix e cartão) e nota fiscal. O roteiro, com riscos e o que
+não foi verificado, está em [COMANDAS-ROADMAP.md](COMANDAS-ROADMAP.md).
 
 ## 2. Papéis e acesso
 
@@ -253,16 +258,23 @@ Verificado na documentação oficial do Supabase em 2026-10-28:
 Existe um **protótipo clicável** das três telas, para ver e validar o fluxo antes da Fase 0. Ele
 **não é o sistema**: não há banco, login nem segredo da comanda.
 
-| Rota        | Tela                                                                      |
-| ----------- | ------------------------------------------------------------------------- |
-| `#/comanda` | Cliente: abre a comanda com nome e celular e acompanha o consumo          |
-| `#/garcom`  | Garçom: busca, confirma o celular, lança itens com autocomplete e estorna |
-| `#/gerente` | Gerente: consumo por dia, curadoria do catálogo e ativação da equipe      |
+| Rota        | Tela                                                                                                                          |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `#/comanda` | Cliente: abre a comanda com nome e celular e acompanha o consumo                                                              |
+| `#/garcom`  | Garçom: busca, confirma o celular, cardápio em grade (1 toque = +1), "−", "Desfazer", "Costuma sair junto" e digitação rápida |
+| `#/gerente` | Gerente: vendas do dia, comandas, catálogo com preços e ativação da equipe                                                    |
 
 **O que o protótipo faz de verdade:** as regras de `src/comandas/rules.ts` (dia de serviço, uma
 comanda por celular por dia, livro-razão de itens com estorno, busca por código, final do celular
 ou nome, digitação rápida `3 chopp`, itens novos viram sugestão, junção de duplicatas). Elas têm
-34 testes unitários e um E2E que atravessa os três papéis.
+testes unitários (`comanda-rules`, `comanda-vendas`) e E2E que atravessam os três papéis.
+
+**Versão 2, voltada a vendas:** o garçom não digita para o caso comum (cardápio por categoria, os
+mais vendidos primeiro, preço no botão, contador por item). Erro se corrige no mesmo lugar: "−" e
+"Desfazer". A venda sugestiva ("costuma sair junto") é contagem de coocorrência por comanda, sem
+modelo, fácil de explicar ao bar. O preço da hora fica gravado em cada lançamento: mudar o
+catálogo não reescreve o passado; venda feita **sem** preço usa o preço atual do catálogo, então
+precificar depois fecha a conta do dia. O estorno é parcial (uma unidade de uma linha de três).
 
 **O que é simulado:**
 

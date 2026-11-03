@@ -1,24 +1,28 @@
 import { useState } from 'react';
 import { ComandaShell, StatusChip } from './ComandaShell';
 import { useComandas } from './context';
-import { formatClock, formatPhone } from './format';
+import { formatBRL, formatClock, formatPhone } from './format';
 import {
   addCatalogItem,
   approveCatalogItem,
   archiveCatalogItem,
   mergeCatalogItem,
   normalizeName,
+  parsePriceCents,
   renameCatalogItem,
+  salesReport,
   serviceDay,
+  setCatalogPrice,
   setStaffActive,
   summarizeItems,
+  tabTotals,
   totalUnits,
   voidTab,
 } from './rules';
 import type { CatalogItem, StaffMember, Tab } from './types';
 import { cardClass, ghostButton, inputClass, primaryButton, primaryStyle } from './ui';
 
-type Aba = 'consumo' | 'catalogo' | 'equipe';
+type Aba = 'vendas' | 'consumo' | 'catalogo' | 'equipe';
 
 function EntradaGerente({
   equipe,
@@ -56,6 +60,7 @@ function CartaoComanda({ tab }: { tab: Tab }) {
   const { state, commit } = useComandas();
   const [confirmar, setConfirmar] = useState(false);
   const linhas = summarizeItems(state, tab.id);
+  const totais = tabTotals(state, tab.id);
 
   return (
     <article
@@ -87,13 +92,24 @@ function CartaoComanda({ tab }: { tab: Tab }) {
               className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 text-sm"
             >
               <span className="text-pink-400 font-mono font-bold">{l.qty}×</span> {l.name}
+              {l.totalCents > 0 && (
+                <span className="text-slate-500"> · {formatBRL(l.totalCents)}</span>
+              )}
             </li>
           ))}
         </ul>
       )}
 
       <div className="flex items-center justify-between mt-3">
-        <span className="text-xs text-slate-500">{totalUnits(linhas)} itens</span>
+        <span className="text-xs text-slate-500">
+          {totalUnits(linhas)} itens
+          {totais.unpricedUnits > 0 && (
+            <span className="text-amber-300"> · {totais.unpricedUnits} sem preço</span>
+          )}
+          <strong className="ml-2 text-base text-white" data-testid={`total-${tab.code}`}>
+            {formatBRL(totais.totalCents)}
+          </strong>
+        </span>
         {!tab.voidedAt &&
           (confirmar ? (
             <span className="flex gap-2">
@@ -138,6 +154,7 @@ function Consumo() {
 
   const validas = tabs.filter((t) => !t.voidedAt);
   const unidades = validas.reduce((sum, t) => sum + totalUnits(summarizeItems(state, t.id)), 0);
+  const faturamento = validas.reduce((sum, t) => sum + tabTotals(state, t.id).totalCents, 0);
 
   return (
     <div>
@@ -164,7 +181,8 @@ function Consumo() {
       </div>
 
       <p className="text-sm text-slate-400 mb-3" data-testid="resumo-dia">
-        {validas.length} {validas.length === 1 ? 'comanda' : 'comandas'} · {unidades} itens
+        {validas.length} {validas.length === 1 ? 'comanda' : 'comandas'} · {unidades} itens ·{' '}
+        {formatBRL(faturamento)} (parcial, sujeito a conferência no caixa)
       </p>
 
       <div className="space-y-3">
@@ -198,10 +216,128 @@ function NomeEditavel({ item }: { item: CatalogItem }) {
   );
 }
 
+/** Preço em reais digitado como o gerente fala ("12,50"); vazio tira o preço. */
+function PrecoEditavel({ item }: { item: CatalogItem }) {
+  const { update } = useComandas();
+  const mostrado =
+    item.priceCents === undefined ? '' : (item.priceCents / 100).toFixed(2).replace('.', ',');
+  const [texto, setTexto] = useState(mostrado);
+  const salvar = () => {
+    const cents = parsePriceCents(texto);
+    if (texto.trim() !== '' && cents === undefined) {
+      setTexto(mostrado); // inválido: volta ao valor salvo
+      return;
+    }
+    if (cents !== item.priceCents) update((s) => setCatalogPrice(s, item.id, cents));
+    setTexto(cents === undefined ? '' : (cents / 100).toFixed(2).replace('.', ','));
+  };
+  return (
+    <label className="flex items-center gap-1 text-xs text-slate-500">
+      R$
+      <input
+        className={`${inputClass} py-2 w-20 text-right`}
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={salvar}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        placeholder="—"
+        inputMode="decimal"
+        aria-label={`Preço de ${item.name}`}
+      />
+    </label>
+  );
+}
+
+function Vendas() {
+  const { state } = useComandas();
+  const hoje = serviceDay(Date.now());
+  const dias = [...new Set([hoje, ...state.tabs.map((t) => t.serviceDay)])].sort().reverse();
+  const [dia, setDia] = useState(hoje);
+  const r = salesReport(state, dia);
+  const maxUnidades = r.top[0]?.units ?? 1;
+
+  return (
+    <div className="space-y-4" data-testid="vendas">
+      <select
+        className={`${inputClass} w-auto`}
+        value={dia}
+        onChange={(e) => setDia(e.target.value)}
+        aria-label="Dia das vendas"
+      >
+        {dias.map((d) => (
+          <option key={d} value={d}>
+            {d === hoje ? `Hoje (${d})` : d}
+          </option>
+        ))}
+      </select>
+
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          ['Faturamento (parcial)', formatBRL(r.revenueCents), 'faturamento'],
+          ['Ticket médio', formatBRL(r.avgTicketCents), 'ticket-medio'],
+          ['Comandas', String(r.tabs), 'comandas'],
+          ['Itens por comanda', r.unitsPerTab.toFixed(1).replace('.', ','), 'itens-por-comanda'],
+        ].map(([rotulo, valor, id]) => (
+          <div key={id} className={cardClass}>
+            <p className="text-xs text-slate-500">{rotulo}</p>
+            <p className="text-2xl font-display font-black text-white" data-testid={`kpi-${id}`}>
+              {valor}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {r.unpricedUnits > 0 && (
+        <div
+          className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200"
+          data-testid="alerta-sem-preco"
+        >
+          <strong>{r.unpricedUnits}</strong>{' '}
+          {r.unpricedUnits === 1 ? 'unidade vendida' : 'unidades vendidas'} sem preço (
+          {r.unpricedItems.map((i) => `${i.units}× ${i.name}`).join(', ')}). Defina o preço na aba
+          Catálogo para o faturamento fechar.
+        </div>
+      )}
+
+      <section className={cardClass}>
+        <h2 className="text-sm font-semibold text-slate-300 mb-3">Mais vendidos</h2>
+        {r.top.length === 0 ? (
+          <p className="text-slate-500 text-sm">Sem vendas neste dia.</p>
+        ) : (
+          <ul className="space-y-2" data-testid="mais-vendidos">
+            {r.top.map((l) => (
+              <li key={l.catalogItemId}>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-200">{l.name}</span>
+                  <span className="text-slate-400">
+                    {l.units}× · {formatBRL(l.revenueCents)}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-slate-800 mt-1">
+                  <div
+                    className="h-full rounded-full bg-pink-500"
+                    style={{ width: `${(l.units / maxUnidades) * 100}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <p className="text-xs text-slate-600">
+        Valores parciais: refletem o que foi lançado, sem taxa de serviço, desconto ou cortesia.
+        Quem fecha a conta continua sendo o caixa.
+      </p>
+    </div>
+  );
+}
+
 function Catalogo() {
   const { state, update } = useComandas();
   const [novo, setNovo] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [preco, setPreco] = useState('');
 
   const vivos = state.catalog.filter((c) => !c.mergedInto);
   const sugeridos = vivos.filter((c) => c.status === 'suggested');
@@ -228,6 +364,7 @@ function Catalogo() {
               <div key={c.id} className="rounded-xl border border-slate-800 p-3">
                 <NomeEditavel item={c} />
                 <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <PrecoEditavel item={c} />
                   <button
                     onClick={() => update((s) => approveCatalogItem(s, c.id))}
                     className={`${ghostButton} border-green-500/50 text-green-300`}
@@ -274,6 +411,7 @@ function Catalogo() {
               <span className="flex-1 min-w-0">
                 <NomeEditavel item={c} />
               </span>
+              <PrecoEditavel item={c} />
               <span className="text-xs text-slate-600 w-14 text-right">{c.useCount} usos</span>
               <button
                 onClick={() => update((s) => archiveCatalogItem(s, c.id))}
@@ -306,11 +444,20 @@ function Catalogo() {
             placeholder="Categoria"
             aria-label="Categoria"
           />
+          <input
+            className={`${inputClass} w-28`}
+            value={preco}
+            onChange={(e) => setPreco(e.target.value)}
+            placeholder="Preço"
+            inputMode="decimal"
+            aria-label="Preço do novo item"
+          />
           <button
             onClick={() => {
-              update((s) => addCatalogItem(s, novo, categoria));
+              update((s) => addCatalogItem(s, novo, categoria, parsePriceCents(preco)));
               setNovo('');
               setCategoria('');
+              setPreco('');
             }}
             className={primaryButton}
             style={primaryStyle}
@@ -357,13 +504,14 @@ function Equipe() {
 
 export default function GerenteView() {
   const { state, staffId, setStaffId } = useComandas();
-  const [aba, setAba] = useState<Aba>('consumo');
+  const [aba, setAba] = useState<Aba>('vendas');
 
   const eu = state.staff.find((s) => s.id === staffId && s.active && s.role === 'gerente');
   if (!eu) return <EntradaGerente equipe={state.staff} onEntrar={setStaffId} />;
 
   const abas: { id: Aba; label: string }[] = [
-    { id: 'consumo', label: 'Consumo' },
+    { id: 'vendas', label: 'Vendas' },
+    { id: 'consumo', label: 'Comandas' },
     { id: 'catalogo', label: 'Catálogo' },
     { id: 'equipe', label: 'Equipe' },
   ];
@@ -405,6 +553,7 @@ export default function GerenteView() {
         ))}
       </div>
 
+      {aba === 'vendas' && <Vendas />}
       {aba === 'consumo' && <Consumo />}
       {aba === 'catalogo' && <Catalogo />}
       {aba === 'equipe' && <Equipe />}

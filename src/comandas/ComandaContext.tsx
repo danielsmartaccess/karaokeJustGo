@@ -13,7 +13,7 @@ import type { ComandaState } from './types';
  * continua a mesma.
  */
 
-const STORAGE_KEY = 'jg-comanda:demo-v1';
+const STORAGE_KEY = 'jg-comanda:demo-v2';
 const MY_TAB_KEY = 'jg-comanda:my-tab';
 const SESSION_KEY = 'jg-comanda:staff';
 

@@ -38,6 +38,8 @@ export interface TabItem {
   /** Nome do item no momento do lançamento (renomear o catálogo não altera). */
   nameSnapshot: string;
   qty: number;
+  /** Preço unitário (centavos) NO MOMENTO do lançamento. Mudar o preço do catálogo não altera vendas passadas. */
+  unitPriceCents?: number;
   reversesItemId?: string;
   addedBy: string;
   createdAt: number;
@@ -50,6 +52,8 @@ export interface CatalogItem {
   name: string;
   normalized: string;
   category: string;
+  /** Preço de venda em centavos. Ausente = ainda sem preço (aparece como alerta ao gerente). */
+  priceCents?: number;
   status: CatalogStatus;
   useCount: number;
   lastUsedAt?: number;
@@ -80,4 +84,8 @@ export interface ItemSummaryLine {
   catalogItemId: string;
   name: string;
   qty: number;
+  /** Soma de quantidade x preço das linhas com preço (já descontados os estornos). */
+  totalCents: number;
+  /** Unidades sem preço: ficam fora do total e são sinalizadas. */
+  unpricedQty: number;
 }

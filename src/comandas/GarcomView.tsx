@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react';
+import { Minus, Plus, Undo2 } from 'lucide-react';
 import { ComandaShell, StatusChip } from './ComandaShell';
 import { useComandas } from './context';
-import { formatClock, maskedPhone } from './format';
+import { formatBRL, formatClock, formatPrice, maskedPhone } from './format';
 import {
   addItem,
   confirmPhone,
   findTabs,
+  menuByCategory,
   normalizeName,
   openTab,
   parseQuickEntry,
+  remainingQty,
+  removeOne,
   reverseItem,
   searchCatalog,
   serviceDay,
+  suggestPairings,
   summarizeItems,
-  totalUnits,
+  tabTotals,
 } from './rules';
 import type { StaffMember, Tab } from './types';
 import { cardClass, ghostButton, inputClass, primaryButton, primaryStyle } from './ui';
@@ -93,45 +98,81 @@ function LinhaComanda({
   );
 }
 
+interface UltimoLancamento {
+  itemId: string;
+  texto: string;
+}
+
 function PainelComanda({ tab, garcom }: { tab: Tab; garcom: StaffMember }) {
   const { state, commit } = useComandas();
   const [texto, setTexto] = useState('');
   const [aviso, setAviso] = useState('');
+  const [ultimo, setUltimo] = useState<UltimoLancamento | null>(null);
+  const [categoria, setCategoria] = useState<string | null>(null);
 
-  // O aviso some sozinho.
+  // O aviso e o "Desfazer" somem sozinhos.
   useEffect(() => {
-    if (!aviso) return;
-    const t = setTimeout(() => setAviso(''), 2500);
+    if (!aviso && !ultimo) return;
+    const t = setTimeout(() => {
+      setAviso('');
+      setUltimo(null);
+    }, 6000);
     return () => clearTimeout(t);
-  }, [aviso]);
+  }, [aviso, ultimo]);
 
   const { qty, term } = parseQuickEntry(texto);
   const sugestoes = searchCatalog(state.catalog, term);
   const resumo = summarizeItems(state, tab.id);
+  const totais = tabTotals(state, tab.id);
+  const naComanda = new Map(resumo.map((l) => [l.catalogItemId, l.qty]));
+  const cardapio = menuByCategory(state.catalog);
+  const ativa = cardapio.find((c) => c.category === categoria) ?? cardapio[0];
+  const casados = suggestPairings(state, tab.id);
   const linhas = state.items
     .filter((i) => i.tabId === tab.id)
     .sort((a, b) => b.createdAt - a.createdAt);
-  const jaEstornados = new Set(linhas.filter((l) => l.reversesItemId).map((l) => l.reversesItemId));
   const exato = sugestoes.some((s) => s.normalized === normalizeName(term));
 
-  const lancar = (catalogItemId: string | undefined, nome: string | undefined) => {
+  const lancar = (catalogItemId: string | undefined, nome: string | undefined, quantidade = 1) => {
     const r = commit((s, now) =>
-      addItem(s, { tabId: tab.id, catalogItemId, name: nome, qty, by: garcom.name }, now),
+      addItem(
+        s,
+        { tabId: tab.id, catalogItemId, name: nome, qty: quantidade, by: garcom.name },
+        now,
+      ),
     );
     if (r.ok) {
-      setAviso(
-        `Lançado: ${qty}× ${r.item.nameSnapshot}${r.created ? ' (novo item, vai para curadoria)' : ''}`,
-      );
-      setTexto('');
+      const descricao = `${quantidade}× ${r.item.nameSnapshot}`;
+      setAviso(`Lançado: ${descricao}${r.created ? ' (novo item, vai para curadoria)' : ''}`);
+      setUltimo({ itemId: r.item.id, texto: descricao });
     } else {
       setAviso('Não foi possível lançar: esta comanda não aceita itens agora.');
+      setUltimo(null);
     }
+    return r.ok;
+  };
+
+  const lancarDigitado = (catalogItemId: string | undefined, nome: string | undefined) => {
+    if (lancar(catalogItemId, nome, qty)) setTexto('');
   };
 
   const enter = () => {
     if (term.trim() === '') return;
-    if (sugestoes[0]) lancar(sugestoes[0].id, undefined);
-    else lancar(undefined, term);
+    if (sugestoes[0]) lancarDigitado(sugestoes[0].id, undefined);
+    else lancarDigitado(undefined, term);
+  };
+
+  const tirarUm = (catalogItemId: string, nome: string) => {
+    const r = commit((s, now) => removeOne(s, tab.id, catalogItemId, garcom.name, now));
+    setAviso(r.ok ? `Tirado: 1× ${nome}` : '');
+    setUltimo(null);
+  };
+
+  const desfazer = () => {
+    if (!ultimo) return;
+    commit((s, now) => reverseItem(s, ultimo.itemId, garcom.name, now));
+    setAviso(`Desfeito: ${ultimo.texto}`);
+    setUltimo(null);
   };
 
   return (
@@ -147,7 +188,20 @@ function PainelComanda({ tab, garcom }: { tab: Tab; garcom: StaffMember }) {
             {tab.tableLabel ? ` · mesa ${tab.tableLabel}` : ''}
           </p>
         </div>
-        <StatusChip status={tab.phoneStatus} />
+        <div className="text-right">
+          <p className="text-2xl font-display font-black text-white" data-testid="total-comanda">
+            {formatBRL(totais.totalCents)}
+          </p>
+          <p className="text-xs text-slate-500">
+            {totais.units} {totais.units === 1 ? 'item' : 'itens'}
+            {totais.unpricedUnits > 0 && (
+              <span className="text-amber-300"> · {totais.unpricedUnits} sem preço</span>
+            )}
+          </p>
+          <div className="mt-1">
+            <StatusChip status={tab.phoneStatus} />
+          </div>
+        </div>
       </div>
 
       {tab.phoneStatus === 'informado' && (
@@ -166,9 +220,117 @@ function PainelComanda({ tab, garcom }: { tab: Tab; garcom: StaffMember }) {
         </div>
       )}
 
+      {/* Aviso e desfazer ficam logo acima do cardápio: o erro se corrige no mesmo lugar do toque. */}
+      <div className="flex items-center gap-2 min-h-10 mb-2" role="status">
+        <span className="flex-1 text-green-400 text-sm">{aviso}</span>
+        {ultimo && (
+          <button
+            onClick={desfazer}
+            className={`${ghostButton} inline-flex items-center gap-1.5 border-green-500/50 text-green-300`}
+          >
+            <Undo2 size={14} aria-hidden /> Desfazer
+          </button>
+        )}
+      </div>
+
+      <div
+        className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1"
+        role="tablist"
+        aria-label="Categorias do cardápio"
+      >
+        {cardapio.map((c) => (
+          <button
+            key={c.category}
+            role="tab"
+            aria-selected={c.category === ativa?.category}
+            onClick={() => setCategoria(c.category)}
+            className={`shrink-0 px-3.5 py-2 rounded-full text-sm font-semibold border ${
+              c.category === ativa?.category
+                ? 'bg-pink-500/20 text-pink-200 border-pink-500/50'
+                : 'text-slate-400 border-slate-700 hover:bg-slate-800'
+            }`}
+          >
+            {c.category}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mt-1 mb-4" data-testid="cardapio">
+        {ativa?.items.map((c) => {
+          const qtd = naComanda.get(c.id) ?? 0;
+          return (
+            <div
+              key={c.id}
+              className={`relative rounded-xl border flex overflow-hidden ${
+                qtd > 0 ? 'border-pink-500/60 bg-pink-500/10' : 'border-slate-700 bg-slate-800/60'
+              }`}
+            >
+              <button
+                onClick={() => lancar(c.id, undefined)}
+                aria-label={`Adicionar ${c.name}`}
+                className="flex-1 min-w-0 text-left px-3 py-3 min-h-16 active:bg-pink-500/20"
+              >
+                <span className="block text-slate-100 text-sm font-semibold leading-tight">
+                  {c.name}
+                </span>
+                <span
+                  className={`block text-xs mt-1 ${
+                    c.priceCents === undefined ? 'text-amber-300' : 'text-slate-400'
+                  }`}
+                >
+                  {formatPrice(c.priceCents)}
+                </span>
+              </button>
+              {qtd > 0 ? (
+                <div className="flex flex-col items-center justify-between py-1 pr-1.5">
+                  <span
+                    className="text-pink-300 font-mono font-black text-sm leading-none pt-1"
+                    data-testid={`qtd-${c.normalized}`}
+                  >
+                    {qtd}×
+                  </span>
+                  <button
+                    onClick={() => tirarUm(c.id, c.name)}
+                    aria-label={`Tirar um ${c.name}`}
+                    className="w-9 h-7 rounded-md border border-slate-600 text-slate-300 hover:bg-slate-700 flex items-center justify-center"
+                  >
+                    <Minus size={14} aria-hidden />
+                  </button>
+                </div>
+              ) : (
+                <span className="self-center pr-3 text-slate-600" aria-hidden>
+                  <Plus size={16} />
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {casados.length > 0 && (
+        <div className="mb-3" data-testid="costuma-sair-junto">
+          <p className="text-xs text-slate-500 mb-1.5">Costuma sair junto</p>
+          <div className="flex flex-wrap gap-2">
+            {casados.map((p) => (
+              <button
+                key={p.item.id}
+                onClick={() => lancar(p.item.id, undefined)}
+                title={`Saiu com ${p.because} em ${p.tabs} ${p.tabs === 1 ? 'comanda' : 'comandas'}`}
+                className="px-3 py-2 rounded-xl text-sm font-semibold bg-sky-500/10 hover:bg-sky-500/25 text-sky-200 border border-sky-500/40 text-left"
+              >
+                <span className="block">+ {p.item.name}</span>
+                <span className="block text-[10px] font-normal text-sky-300/70">
+                  com {p.because}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <label className="block mb-2">
         <span className="block text-slate-400 text-sm mb-1.5">
-          Item (ex.: <span className="font-mono">3 chopp</span> lança 3 de uma vez)
+          Não achou? Digite (ex.: <span className="font-mono">3 chopp</span> lança 3 de uma vez)
         </span>
         <input
           className={inputClass}
@@ -182,10 +344,10 @@ function PainelComanda({ tab, garcom }: { tab: Tab; garcom: StaffMember }) {
       </label>
 
       <div className="flex flex-wrap gap-2 mb-2" data-testid="sugestoes">
-        {sugestoes.map((s) => (
+        {(term.trim() === '' ? [] : sugestoes).map((s) => (
           <button
             key={s.id}
-            onClick={() => lancar(s.id, undefined)}
+            onClick={() => lancarDigitado(s.id, undefined)}
             className="px-3 py-2 rounded-xl text-sm font-semibold bg-pink-500/15 hover:bg-pink-500/30 text-pink-200 border border-pink-500/40"
           >
             {qty > 1 ? `${qty}× ` : ''}
@@ -197,7 +359,7 @@ function PainelComanda({ tab, garcom }: { tab: Tab; garcom: StaffMember }) {
         ))}
         {term.trim() !== '' && !exato && (
           <button
-            onClick={() => lancar(undefined, term)}
+            onClick={() => lancarDigitado(undefined, term)}
             className="px-3 py-2 rounded-xl text-sm border border-dashed border-slate-500 text-slate-300 hover:bg-slate-800"
           >
             Adicionar “{term.trim()}” como novo item
@@ -205,14 +367,12 @@ function PainelComanda({ tab, garcom }: { tab: Tab; garcom: StaffMember }) {
         )}
       </div>
 
-      <p role="status" className="min-h-5 text-green-400 text-sm mb-2">
-        {aviso}
-      </p>
-
-      <div className="border-t border-slate-800 pt-3">
-        <div className="flex items-baseline justify-between mb-2">
+      <div className="border-t border-slate-800 pt-3 mt-3">
+        <div className="flex items-baseline justify-between gap-3 mb-2">
           <h3 className="text-sm font-semibold text-slate-300">Consumo</h3>
-          <span className="text-xs text-slate-500">{totalUnits(resumo)} itens</span>
+          <span className="text-xs text-slate-500">
+            {totais.units} itens · parcial, sujeito a conferência no caixa
+          </span>
         </div>
         {resumo.length === 0 ? (
           <p className="text-slate-500 text-sm">Nenhum item lançado.</p>
@@ -224,6 +384,9 @@ function PainelComanda({ tab, garcom }: { tab: Tab; garcom: StaffMember }) {
                 className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 text-sm"
               >
                 <span className="text-pink-400 font-mono font-bold">{l.qty}×</span> {l.name}
+                {l.totalCents > 0 && (
+                  <span className="text-slate-500"> · {formatBRL(l.totalCents)}</span>
+                )}
               </li>
             ))}
           </ul>
@@ -235,32 +398,35 @@ function PainelComanda({ tab, garcom }: { tab: Tab; garcom: StaffMember }) {
               Lançamentos ({linhas.length})
             </summary>
             <ul className="mt-2 divide-y divide-slate-800 text-sm">
-              {linhas.map((l) => (
-                <li key={l.id} className="flex items-center gap-2 py-2">
-                  <span className="text-slate-600 font-mono text-xs w-11">
-                    {formatClock(l.createdAt)}
-                  </span>
-                  <span
-                    className={`flex-1 ${
-                      l.qty < 0 || jaEstornados.has(l.id)
-                        ? 'text-slate-600 line-through'
-                        : 'text-slate-300'
-                    }`}
-                  >
-                    {l.qty > 0 ? '+' : ''}
-                    {l.qty} {l.nameSnapshot}
-                    {l.qty < 0 && ' (estorno)'}
-                  </span>
-                  {l.qty > 0 && !jaEstornados.has(l.id) && (
-                    <button
-                      onClick={() => commit((s, now) => reverseItem(s, l.id, garcom.name, now))}
-                      className={ghostButton}
+              {linhas.map((l) => {
+                const resta = remainingQty(state, l);
+                const zerada = l.qty > 0 && resta === 0;
+                return (
+                  <li key={l.id} className="flex items-center gap-2 py-2">
+                    <span className="text-slate-600 font-mono text-xs w-11">
+                      {formatClock(l.createdAt)}
+                    </span>
+                    <span
+                      className={`flex-1 ${
+                        l.qty < 0 || zerada ? 'text-slate-600 line-through' : 'text-slate-300'
+                      }`}
                     >
-                      Estornar
-                    </button>
-                  )}
-                </li>
-              ))}
+                      {l.qty > 0 ? '+' : ''}
+                      {l.qty} {l.nameSnapshot}
+                      {l.qty < 0 && ' (estorno)'}
+                      {l.qty > 0 && resta > 0 && resta < l.qty && ` (restam ${resta})`}
+                    </span>
+                    {resta > 0 && (
+                      <button
+                        onClick={() => commit((s, now) => reverseItem(s, l.id, garcom.name, now))}
+                        className={ghostButton}
+                      >
+                        Estornar
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </details>
         )}
@@ -341,36 +507,50 @@ export default function GarcomView() {
         </button>
       }
     >
-      <label className="block">
-        <span className="block text-slate-400 text-sm mb-1.5">
-          Buscar comanda: número, 4 últimos dígitos do celular ou nome
-        </span>
-        <input
-          className={inputClass}
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Ex.: 2, 0202 ou Ana"
-          aria-label="Buscar comanda"
-          autoComplete="off"
-        />
-      </label>
-
-      <div className="mt-3 space-y-2" data-testid="resultados">
-        {resultados.length === 0 ? (
-          <p className="text-slate-500 text-sm">Nenhuma comanda de hoje encontrada.</p>
-        ) : (
-          resultados.map((t) => (
-            <LinhaComanda
-              key={t.id}
-              tab={t}
-              selecionada={t.id === tab?.id}
-              onClick={() => setSelecionada(t.id)}
+      {/* Com uma comanda aberta, a lista de busca recolhe: o cardápio é o foco. */}
+      {tab ? (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-slate-400">
+            Lançando na comanda <strong className="text-pink-300">{tab.code}</strong>
+          </p>
+          <button onClick={() => setSelecionada(null)} className={ghostButton}>
+            Trocar comanda
+          </button>
+        </div>
+      ) : (
+        <>
+          <label className="block">
+            <span className="block text-slate-400 text-sm mb-1.5">
+              Buscar comanda: número, 4 últimos dígitos do celular ou nome
+            </span>
+            <input
+              className={inputClass}
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Ex.: 2, 0202 ou Ana"
+              aria-label="Buscar comanda"
+              autoComplete="off"
             />
-          ))
-        )}
-      </div>
+          </label>
 
-      <AbrirSemCelular onAberta={setSelecionada} />
+          <div className="mt-3 space-y-2" data-testid="resultados">
+            {resultados.length === 0 ? (
+              <p className="text-slate-500 text-sm">Nenhuma comanda de hoje encontrada.</p>
+            ) : (
+              resultados.map((t) => (
+                <LinhaComanda
+                  key={t.id}
+                  tab={t}
+                  selecionada={false}
+                  onClick={() => setSelecionada(t.id)}
+                />
+              ))
+            )}
+          </div>
+
+          <AbrirSemCelular onAberta={setSelecionada} />
+        </>
+      )}
 
       {tab && <PainelComanda key={tab.id} tab={tab} garcom={eu} />}
     </ComandaShell>

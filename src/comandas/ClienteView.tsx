@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { ComandaShell, StatusChip } from './ComandaShell';
 import { useComandas } from './context';
-import { openTab, serviceDay, summarizeItems, totalUnits, type OpenTabFailure } from './rules';
+import { formatBRL } from './format';
+import {
+  openTab,
+  serviceDay,
+  summarizeItems,
+  tabTotals,
+  totalUnits,
+  type OpenTabFailure,
+} from './rules';
 import { cardClass, ghostButton, inputClass, primaryButton, primaryStyle } from './ui';
 
 const MENSAGENS: Record<OpenTabFailure, string> = {
@@ -59,6 +67,7 @@ export default function ClienteView() {
 
   if (minha) {
     const linhas = summarizeItems(state, minha.id);
+    const totais = tabTotals(state, minha.id);
     return (
       <ComandaShell papel="cliente" titulo="Minha comanda">
         <div className={`${cardClass} text-center mb-4`} data-testid="minha-comanda">
@@ -96,11 +105,44 @@ export default function ClienteView() {
               {linhas.map((l) => (
                 <li key={l.catalogItemId} className="flex items-center gap-3 py-2.5">
                   <span className="text-pink-400 font-mono font-bold w-10">{l.qty}×</span>
-                  <span className="text-slate-200">{l.name}</span>
+                  <span className="text-slate-200 flex-1">{l.name}</span>
+                  {l.totalCents > 0 && (
+                    <span className="text-slate-400 text-sm">{formatBRL(l.totalCents)}</span>
+                  )}
                 </li>
               ))}
             </ul>
           )}
+
+          {linhas.length > 0 && (
+            <div className="border-t border-slate-800 mt-3 pt-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm text-slate-400">Total até agora</span>
+                <span
+                  className="text-2xl font-display font-black text-white"
+                  data-testid="total-cliente"
+                >
+                  {formatBRL(totais.totalCents)}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1">
+                Valor parcial, sujeito a conferência no caixa
+                {totais.unpricedUnits > 0 && ` (${totais.unpricedUnits} item(ns) ainda sem preço)`}.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Roteiro: pagamento pelo app (Pix com o valor da conta e cartão) ainda não existe. */}
+        <div className={`${cardClass} mt-4 opacity-70`} data-testid="pagamento-em-breve">
+          <p className="text-sm font-semibold text-slate-300">Pagar pelo app</p>
+          <p className="text-xs text-slate-500 mt-1 mb-3">
+            Em breve: pagar com Pix (valor da conta) ou cartão, sem esperar a conta. Por enquanto, o
+            pagamento é no caixa.
+          </p>
+          <button disabled className={`${primaryButton} w-full`} style={primaryStyle}>
+            Pagar pelo app (em breve)
+          </button>
         </div>
 
         <div className="mt-4 text-center">
