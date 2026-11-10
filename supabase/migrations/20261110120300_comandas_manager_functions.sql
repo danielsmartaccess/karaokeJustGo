@@ -49,7 +49,9 @@ begin
     select jsonb_agg(
              jsonb_build_object(
                'id', t.id, 'code', t.code, 'customer_name', t.customer_name,
-               'table_label', t.table_label, 'bill_requested_at', t.bill_requested_at)
+               'phone_status', t.phone_status, 'table_label', t.table_label,
+               'status', t.status, 'opened_at', t.opened_at,
+               'bill_requested_at', t.bill_requested_at)
              || public.comanda_summary(t.id)
              order by t.bill_requested_at, t.code)
       from public.comanda_tabs t

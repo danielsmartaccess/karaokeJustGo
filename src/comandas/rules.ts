@@ -3,6 +3,7 @@ import type {
   CatalogItem,
   ComandaState,
   ItemSummaryLine,
+  PaymentMethod,
   PhoneStatus,
   Tab,
   TabItem,
@@ -245,7 +246,8 @@ export function addItem(
 ): Result<{ ok: true; item: TabItem; created: boolean } | Failure<AddItemFailure>> {
   const tab = state.tabs.find((t) => t.id === input.tabId);
   if (!tab) return fail(state, 'tab-not-found');
-  if (tab.voidedAt || tab.serviceDay !== serviceDay(now)) return fail(state, 'tab-not-open-today');
+  if (tab.voidedAt || tab.status === 'fechada' || tab.serviceDay !== serviceDay(now))
+    return fail(state, 'tab-not-open-today');
   if (!Number.isInteger(input.qty) || input.qty < 1 || input.qty > 99)
     return fail(state, 'invalid-qty');
 
@@ -320,6 +322,9 @@ export function reverseItem(
 ): Result<{ ok: boolean }> {
   const original = state.items.find((i) => i.id === itemId);
   if (!original) return { state, result: { ok: false } };
+  const owner = state.tabs.find((t) => t.id === original.tabId);
+  if (!owner || owner.voidedAt || owner.status === 'fechada')
+    return { state, result: { ok: false } };
   const left = remainingQty(state, original);
   const amount = qty ?? left;
   if (left <= 0 || !Number.isInteger(amount) || amount < 1 || amount > left) {
@@ -662,4 +667,92 @@ export function parsePriceCents(text: string): number | undefined {
 
 export function setStaffActive(state: ComandaState, id: string, active: boolean): ComandaState {
   return { ...state, staff: state.staff.map((s) => (s.id === id ? { ...s, active } : s)) };
+}
+
+// --- Conta e fechamento -------------------------------------------------------------
+
+export type TabStatus = 'aberta' | 'conta_pedida' | 'fechada' | 'anulada';
+
+export function tabStatus(tab: Tab): TabStatus {
+  return tab.voidedAt ? 'anulada' : (tab.status ?? 'aberta');
+}
+
+export type CloseFailure = 'not-found' | 'tab-closed' | 'unpriced-items';
+
+/** O cliente (ou o garçom) pede a conta. Idempotente; conta fechada ou anulada não aceita. */
+export function requestBill(
+  state: ComandaState,
+  tabId: string,
+  now: number,
+): Result<{ ok: true } | Failure<'not-found' | 'tab-closed'>> {
+  const tab = state.tabs.find((t) => t.id === tabId);
+  if (!tab) return fail(state, 'not-found');
+  const status = tabStatus(tab);
+  if (status === 'fechada' || status === 'anulada') return fail(state, 'tab-closed');
+  if (status === 'conta_pedida') return { state, result: { ok: true } };
+  const tabs = state.tabs.map((t) =>
+    t.id === tabId ? { ...t, status: 'conta_pedida' as const, billRequestedAt: now } : t,
+  );
+  return { state: { ...state, tabs }, result: { ok: true } };
+}
+
+/**
+ * O gerente fecha a conta: congela o total e registra a forma de pagamento.
+ * Recusa se há itens sem preço, a menos que aceite explicitamente.
+ */
+export function closeTab(
+  state: ComandaState,
+  tabId: string,
+  method: PaymentMethod,
+  acceptUnpriced: boolean,
+  now: number,
+): Result<{ ok: true; totalCents: number; unpricedUnits: number } | Failure<CloseFailure>> {
+  const tab = state.tabs.find((t) => t.id === tabId);
+  if (!tab) return fail(state, 'not-found');
+  const status = tabStatus(tab);
+  if (status === 'fechada' || status === 'anulada') return fail(state, 'tab-closed');
+
+  const totals = tabTotals(state, tabId);
+  if (totals.unpricedUnits > 0 && !acceptUnpriced) return fail(state, 'unpriced-items');
+
+  const tabs = state.tabs.map((t) =>
+    t.id === tabId
+      ? {
+          ...t,
+          status: 'fechada' as const,
+          closedAt: now,
+          closedTotalCents: totals.totalCents,
+          closedUnpricedUnits: totals.unpricedUnits,
+          paymentMethod: method,
+        }
+      : t,
+  );
+  return {
+    state: { ...state, tabs },
+    result: { ok: true, totalCents: totals.totalCents, unpricedUnits: totals.unpricedUnits },
+  };
+}
+
+/** Reabre uma conta fechada hoje; o total congelado é descartado. */
+export function reopenTab(
+  state: ComandaState,
+  tabId: string,
+  now: number,
+): Result<{ ok: boolean }> {
+  const tab = state.tabs.find((t) => t.id === tabId);
+  if (!tab || tabStatus(tab) !== 'fechada' || tab.serviceDay !== serviceDay(now))
+    return { state, result: { ok: false } };
+  const tabs = state.tabs.map((t) =>
+    t.id === tabId
+      ? {
+          ...t,
+          status: 'aberta' as const,
+          closedAt: undefined,
+          closedTotalCents: undefined,
+          closedUnpricedUnits: undefined,
+          paymentMethod: undefined,
+        }
+      : t,
+  );
+  return { state: { ...state, tabs }, result: { ok: true } };
 }

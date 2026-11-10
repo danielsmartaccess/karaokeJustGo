@@ -113,3 +113,29 @@ export async function errorOf(p: Promise<unknown>): Promise<string> {
   }
   return '(não falhou)';
 }
+
+// --- Usuários e cardápio de teste, compartilhados pelos arquivos de teste ---------
+
+export const uid = (n: string) => `00000000-0000-0000-0000-0000000000${n}`;
+export const WHO = {
+  manager: { role: 'authenticated', uid: uid('0a') } as Who, // gerente ativo
+  waiter: { role: 'authenticated', uid: uid('0b') } as Who, // garçom ativo
+  pending: { role: 'authenticated', uid: uid('0c') } as Who, // garçom pendente
+  visitor: { role: 'authenticated', uid: uid('0d') } as Who, // logado, fora da equipe
+};
+
+/** Equipe e cardápio mínimos (rode dentro de uma transação desfeita no fim do teste). */
+export async function seedBasics(db: PGlite): Promise<void> {
+  await db.exec(`
+    insert into auth.users (id, email) values
+      ('${WHO.manager.uid}', 'marina@exemplo.test'), ('${WHO.waiter.uid}', 'carlos@exemplo.test'),
+      ('${WHO.pending.uid}', 'joao@exemplo.test'), ('${WHO.visitor.uid}', 'visita@exemplo.test');
+    insert into public.comanda_staff (user_id, name, role, active) values
+      ('${WHO.manager.uid}', 'Marina', 'gerente', true), ('${WHO.waiter.uid}', 'Carlos', 'garcom', true),
+      ('${WHO.pending.uid}', 'João', 'garcom', false);
+    insert into public.comanda_catalog (name, normalized, category, price_cents, status, use_count) values
+      ('Chopp', 'chopp', 'Cervejas', 1200, 'approved', 40),
+      ('Caipirinha', 'caipirinha', 'Drinks', 2200, 'approved', 18),
+      ('Porção de batata frita', 'porcao de batata frita', 'Porções', 3200, 'approved', 20);
+  `);
+}

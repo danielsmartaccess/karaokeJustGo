@@ -25,7 +25,18 @@ export interface Tab {
   /** Quem abriu: o próprio cliente ou o garçom (contingência). */
   openedBy: 'cliente' | 'garcom';
   voidedAt?: number;
+  /** Ausente = aberta. Anulada continua sendo `voidedAt`. */
+  status?: 'aberta' | 'conta_pedida' | 'fechada';
+  billRequestedAt?: number;
+  closedAt?: number;
+  /** Conta final, congelada no fechamento. */
+  closedTotalCents?: number;
+  closedUnpricedUnits?: number;
+  paymentMethod?: PaymentMethod;
 }
+
+/** Como a conta foi paga. O app ainda não cobra: o gerente só registra. */
+export type PaymentMethod = 'dinheiro' | 'cartao' | 'pix' | 'outro';
 
 /**
  * Linha do livro-razão de itens. Só se acrescenta: estorno é uma linha de
