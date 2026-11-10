@@ -297,7 +297,7 @@ comandas), sem projeto de homologação separado (custo). Os dados atuais são d
 Fase 0 foi escrita para ser **aditiva e isolada** e foi testada num Postgres local antes de qualquer
 aplicação remota.
 
-**O que existe (nada aplicado em banco remoto):**
+**O que existe (nada aplicado em banco remoto; guia de revisão em [COMANDAS-REVISAO-SQL.md](COMANDAS-REVISAO-SQL.md)):**
 
 | Arquivo (`supabase/migrations/`)                | Conteúdo                                                                       |
 | ----------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -305,6 +305,7 @@ aplicação remota.
 | `20261110120100_comandas_client_functions.sql`  | Cliente sem login: abrir, ver a própria comanda, pedir a conta                 |
 | `20261110120200_comandas_staff_functions.sql`   | Equipe: cadastro, busca, lançar, estornar, confirmar celular, recuperar acesso |
 | `20261110120300_comandas_manager_functions.sql` | Gerente: fechar, reabrir, anular, catálogo e preços, equipe, relatório         |
+| `20261110120400_comandas_sales_assist.sql`      | "Costuma sair junto" (cruza comandas) e o "−" do cardápio                      |
 
 **Postura de acesso.** As tabelas têm RLS ligado, **nenhuma política** e nenhum privilégio para
 `anon`/`authenticated`. Todo acesso passa por funções `SECURITY DEFINER` que conferem o papel da
@@ -339,3 +340,16 @@ nem PostgREST, Realtime e o Auth de verdade.
 funções, com fila de lançamentos para rede instável), limites contra abuso na abertura pública,
 chave de ligar/desligar o karaokê por evento e o login real do Host. A limpeza das tabelas do modelo
 antigo (`supabase/scripts/drop-legacy-schema.sql`) fica para depois, por decisão do dono.
+
+**Ligação do app (2026-11-10).** As telas falam só com o contrato `ComandaBackend`
+(`src/comandas/backend/types.ts`), com duas fontes: `supabaseBackend` (chama as funções do banco e
+o login por e-mail e senha) e `demoBackend` (regras locais em `localStorage`, para o preview e os
+testes E2E). O modo ao vivo exige **Supabase configurado E `VITE_COMANDAS_LIVE=true`**; sem o
+interruptor, mesmo com o Supabase do karaokê configurado, o app fica na demonstração. Assim nenhuma
+implantação chama funções que ainda não foram aplicadas. O adaptador é testado contra o SQL de
+verdade (`tests/db/adapter.test.ts`).
+
+**Telas novas:** o cliente pede a conta e vê o valor final; o gerente tem a aba **Caixa** (fila de
+contas pedidas, fechamento com forma de pagamento); o garçom registra "a mesa pediu a conta" e
+recupera o acesso do cliente por QR (o link `?t=<comanda>&s=<segredo>` guarda o segredo no aparelho
+e o tira do endereço na hora).
