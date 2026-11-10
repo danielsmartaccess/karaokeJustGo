@@ -21,7 +21,7 @@
 | Dados do cliente  | **Nome e telefone são guardados para sempre**                                                       |
 | Catálogo de itens | **O gerente cura.** O garçom pode sugerir itens novos                                               |
 | Dispositivos      | Garçom e gerente usam o **próprio celular ou o computador**                                         |
-| Ambiente          | **Sem Docker.** A homologação é um projeto Supabase remoto, separado da produção                    |
+| Ambiente          | **Sem Docker.** Um único projeto Supabase para karaokê e comandas (decisão do dono, 2026-11-10)     |
 | Piloto            | Armazém Anita                                                                                       |
 
 **Atualização (2026-11-03):** o preço entrou no protótipo (preço por item no catálogo, preço
@@ -289,3 +289,53 @@ precificar depois fecha a conta do dia. O estorno é parcial (uma unidade de uma
 **Onde está o código:** `src/comandas/` (carregado sob demanda: quem abre o telão não baixa esse
 código). O provedor das comandas é separado do provedor do karaokê, então a sala do karaokê **não
 abre conexão** quando só se usa a comanda.
+
+## 14. Fase 0 em arquivo (2026-11-10): banco real, ainda NÃO aplicado
+
+**Decisão do dono (2026-11-10):** usar o projeto Supabase que já existe para tudo (karaokê e
+comandas), sem projeto de homologação separado (custo). Os dados atuais são de teste. Por isso a
+Fase 0 foi escrita para ser **aditiva e isolada** e foi testada num Postgres local antes de qualquer
+aplicação remota.
+
+**O que existe (nada aplicado em banco remoto):**
+
+| Arquivo (`supabase/migrations/`)                | Conteúdo                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| `20261110120000_comandas_core.sql`              | Tipos, 5 tabelas `comanda_*`, RLS sem políticas, livro-razão só de acréscimo   |
+| `20261110120100_comandas_client_functions.sql`  | Cliente sem login: abrir, ver a própria comanda, pedir a conta                 |
+| `20261110120200_comandas_staff_functions.sql`   | Equipe: cadastro, busca, lançar, estornar, confirmar celular, recuperar acesso |
+| `20261110120300_comandas_manager_functions.sql` | Gerente: fechar, reabrir, anular, catálogo e preços, equipe, relatório         |
+
+**Postura de acesso.** As tabelas têm RLS ligado, **nenhuma política** e nenhum privilégio para
+`anon`/`authenticated`. Todo acesso passa por funções `SECURITY DEFINER` que conferem o papel da
+equipe (login com e-mail e senha, **nunca login anônimo**) ou o segredo da comanda (o banco guarda só
+o hash). Não há leitura direta nem Realtime: o app consulta por função (polling curto).
+
+**Fechamento da conta.** Estados: `aberta`, `conta_pedida`, `fechada`, `anulada`. O cliente (ou o
+garçom) pede a conta; o gerente fecha: o total é **congelado** e a forma de pagamento (dinheiro,
+cartão, Pix, outro) é registrada. Fechamento com item sem preço é recusado, salvo aceite explícito.
+Depois de fechada não entram itens; o gerente pode reabrir no mesmo dia (fica na auditoria). **Não há
+cobrança pelo app**: Pix e cartão pelo app continuam sendo a Fase 4 do roteiro.
+
+**Testes.** `tests/db/` roda as migrations num Postgres local em memória (PGlite, sem Docker) que
+imita o Supabase, inclusive o padrão de dar `execute` a toda função nova para `anon` (armadilha que
+os `revoke` precisam desfazer). São 84 testes: acesso por papel, regras de negócio espelhadas de
+`rules.ts`, fechamento, relatório e dia de serviço. Foram validados com mutação (tirar um `revoke`
+ou liberar o `anon` faz testes falharem). Limites: não cobre concorrência real (uma conexão só),
+nem PostgREST, Realtime e o Auth de verdade.
+
+**Antes de aplicar no projeto real (nada disso foi feito):**
+
+1. Revisar o SQL das 4 migrations e **autorizar a aplicação, uma por vez**.
+2. Ligar a **proteção contra senha vazada** do Auth (hoje desligada) antes do login da equipe.
+3. Criar o **primeiro gerente** (não há como se autopromover). Com o usuário já criado no painel do
+   Auth (e-mail e senha), o dono roda UMA vez, no SQL Editor:
+   `insert into public.comanda_staff (user_id, name, role, active) values ('<uuid do usuário>', 'Nome', 'gerente', true);`
+4. Conferir o `get_advisors` de segurança depois de cada migration.
+5. Conferir que o telão e o Host continuam funcionando (as migrations não tocam as tabelas do
+   karaokê, mas a verificação é obrigatória).
+
+**Pendências desta fase:** ligar o app ao banco (trocar o armazenamento local por chamadas às
+funções, com fila de lançamentos para rede instável), limites contra abuso na abertura pública,
+chave de ligar/desligar o karaokê por evento e o login real do Host. A limpeza das tabelas do modelo
+antigo (`supabase/scripts/drop-legacy-schema.sql`) fica para depois, por decisão do dono.
