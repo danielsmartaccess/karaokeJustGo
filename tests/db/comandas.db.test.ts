@@ -119,6 +119,8 @@ describe('acesso por papel', () => {
     'comanda_sales_report(null)',
     'comanda_list_tabs(null)',
     'comanda_whoami()',
+    'comanda_suggest_pairings(null, 3)',
+    'comanda_remove_one(null, null)',
   ])('anon não executa %s', async (call) => {
     expect(await errorOf(as(db, ANON, `select public.${call}`))).toMatch(
       /permission denied for function/,
@@ -783,5 +785,154 @@ describe('regras puras', () => {
         await q<{ p: string | null }>('select public.comanda_normalize_phone($1) as p', [entrada])
       )[0].p,
     ).toBe(esperado);
+  });
+});
+
+// --- Venda sugestiva e o "−" do cardápio -----------------------------------------
+
+describe('apoio à venda', () => {
+  beforeEach(async () => {
+    await q(`insert into public.comanda_catalog (name, normalized, category, price_cents, status, use_count) values
+      ('Isca de frango', 'isca de frango', 'Porções', 3800, 'approved', 9),
+      ('Refrigerante lata', 'refrigerante lata', 'Sem álcool', 800, 'approved', 15)`);
+  });
+
+  /** Comanda de ontem já com consumo (histórico que alimenta a sugestão). */
+  async function pastTab(code: number, items: [string, number][], status = 'aberta') {
+    const [{ id: tab }] = await q<{ id: string }>(
+      `insert into public.comanda_tabs (code, service_day, customer_name, phone_status, opened_by, status)
+       values ($1::int, $2::date, 'Histórico ' || $1::int, 'sem_celular', 'garcom', $3::public.comanda_tab_status) returning id`,
+      [code, await yesterday(), status],
+    );
+    for (const [name, qty] of items) {
+      await q(
+        `insert into public.comanda_items (tab_id, catalog_item_id, name_snapshot, qty, added_by)
+         select $1, c.id, c.name, $3, $4 from public.comanda_catalog c where c.name = $2`,
+        [tab, name, qty, W.uid],
+      );
+    }
+    return tab;
+  }
+
+  it('quem pediu caipirinha costuma pedir isca de frango', async () => {
+    await pastTab(1, [
+      ['Caipirinha', 3],
+      ['Isca de frango', 1],
+    ]);
+    await pastTab(2, [
+      ['Caipirinha', 2],
+      ['Isca de frango', 1],
+      ['Refrigerante lata', 2],
+    ]);
+    await pastTab(3, [
+      ['Chopp', 4],
+      ['Porção de batata frita', 1],
+    ]);
+
+    const carla = (await rpc(db, W, 'comanda_open_tab_by_staff', ['Carla', null])).tab_id;
+    await addById(W, carla, await catId('Caipirinha'), 2);
+
+    const r = await rpc(db, W, 'comanda_suggest_pairings', [carla, 3]);
+    expect(r[0]).toMatchObject({
+      name: 'Isca de frango',
+      because: 'Caipirinha',
+      tabs: 2,
+      price_cents: 3800,
+    });
+    expect(r.map((x: any) => x.name)).toEqual(['Isca de frango', 'Refrigerante lata']);
+  });
+
+  it('não sugere o que a comanda já tem, e comanda vazia não recebe sugestão', async () => {
+    await pastTab(1, [
+      ['Chopp', 3],
+      ['Porção de batata frita', 1],
+    ]);
+    const ana = (await openClient('Ana', '51 99999-0101')).tab_id;
+    expect(await rpc(db, W, 'comanda_suggest_pairings', [ana, 3])).toEqual([]);
+
+    await addById(W, ana, await catId('Chopp'), 1);
+    await addById(W, ana, await catId('Porção de batata frita'), 1);
+    expect(await rpc(db, W, 'comanda_suggest_pairings', [ana, 3])).toEqual([]);
+  });
+
+  it('ignora comandas anuladas e itens arquivados; respeita o limite', async () => {
+    await pastTab(
+      1,
+      [
+        ['Caipirinha', 1],
+        ['Isca de frango', 1],
+      ],
+      'anulada',
+    );
+    await pastTab(2, [
+      ['Caipirinha', 1],
+      ['Refrigerante lata', 1],
+      ['Porção de batata frita', 1],
+    ]);
+    const carla = (await rpc(db, W, 'comanda_open_tab_by_staff', ['Carla', null])).tab_id;
+    await addById(W, carla, await catId('Caipirinha'), 1);
+
+    const names = async (limit: number) =>
+      (await rpc(db, W, 'comanda_suggest_pairings', [carla, limit])).map((x: any) => x.name);
+    expect(await names(5)).not.toContain('Isca de frango'); // só veio de comanda anulada
+    expect(await names(1)).toHaveLength(1);
+    expect(await names(0)).toEqual([]);
+
+    await rpc(db, M, 'comanda_catalog_archive', [await catId('Refrigerante lata')]);
+    expect(await names(5)).not.toContain('Refrigerante lata');
+  });
+
+  it('o "−" tira uma unidade da linha mais recente que ainda tem saldo', async () => {
+    const tab = (await openClient('Ana', '51 99999-0101')).tab_id;
+    const chopp = await catId('Chopp');
+    await addById(W, tab, chopp, 3);
+    await addById(W, tab, chopp, 2);
+
+    expect(await rpc(db, W, 'comanda_remove_one', [tab, chopp])).toEqual({ ok: true });
+    const t = await rpc(db, W, 'comanda_get_tab', [tab]);
+    expect(t.lines[0].qty).toBe(4);
+    expect(t.ledger.find((l: any) => l.qty === 2).remaining).toBe(1); // a mais recente
+
+    for (let i = 0; i < 4; i++) {
+      expect(await rpc(db, W, 'comanda_remove_one', [tab, chopp])).toEqual({ ok: true });
+    }
+    expect(await rpc(db, W, 'comanda_remove_one', [tab, chopp])).toEqual({ ok: false });
+    expect((await rpc(db, W, 'comanda_get_tab', [tab])).total_cents).toBe(0);
+  });
+
+  it('o "−" em item que a comanda não tem não faz nada; em conta fechada é recusado', async () => {
+    const tab = (await openClient('Ana', '51 99999-0101')).tab_id;
+    await addById(W, tab, await catId('Chopp'), 1);
+    expect(await rpc(db, W, 'comanda_remove_one', [tab, await catId('Caipirinha')])).toEqual({
+      ok: false,
+    });
+    expect(await rpc(db, W, 'comanda_remove_one', [tab, id('99')])).toEqual({ ok: false });
+    expect(await errorOf(rpc(db, W, 'comanda_remove_one', [id('99'), await catId('Chopp')]))).toBe(
+      'tab-not-found',
+    );
+
+    await rpc(db, M, 'comanda_close_tab', [tab, 'pix', false]);
+    expect(await errorOf(rpc(db, W, 'comanda_remove_one', [tab, await catId('Chopp')]))).toBe(
+      'tab-not-open-today',
+    );
+  });
+
+  it('o "−" pelo nome de uma duplicata juntada tira do item de destino', async () => {
+    const tab = (await openClient('Ana', '51 99999-0101')).tab_id;
+    await addById(W, tab, await catId('Chopp'), 1);
+    await addTyped(W, tab, 'Chopp gelado', 1);
+    const gelado = await catId('Chopp gelado');
+    await rpc(db, M, 'comanda_catalog_merge', [gelado, await catId('Chopp')]);
+
+    expect(await rpc(db, W, 'comanda_remove_one', [tab, gelado])).toEqual({ ok: true });
+    expect((await rpc(db, W, 'comanda_get_tab', [tab])).units).toBe(1);
+  });
+
+  it('só a equipe ativa usa estas funções', async () => {
+    const tab = (await openClient('Ana', '51 99999-0101')).tab_id;
+    expect(await errorOf(rpc(db, P, 'comanda_suggest_pairings', [tab, 3]))).toBe('forbidden');
+    expect(await errorOf(rpc(db, N, 'comanda_remove_one', [tab, await catId('Chopp')]))).toBe(
+      'forbidden',
+    );
   });
 });

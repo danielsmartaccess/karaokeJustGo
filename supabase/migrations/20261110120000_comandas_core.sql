@@ -120,7 +120,8 @@ create table public.comanda_items (
   -- Estorno é uma linha negativa apontando para a original (pode ser parcial).
   reverses_item_id uuid references public.comanda_items (id),
   added_by         uuid not null references public.comanda_staff (user_id),
-  created_at       timestamptz not null default now(),
+  -- clock_timestamp (não now): linhas lançadas na mesma transação mantêm a ordem real.
+  created_at       timestamptz not null default clock_timestamp(),
   constraint comanda_items_reversal_shape check (
     (qty > 0 and reverses_item_id is null) or (qty < 0 and reverses_item_id is not null)
   )
