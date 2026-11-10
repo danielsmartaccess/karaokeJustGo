@@ -111,7 +111,8 @@ test('o gerente acompanha as vendas e precifica o item vendido sem preço', asyn
   await page.goto('./#/gerente');
   await page.getByRole('button', { name: 'Entrar como Marina' }).click();
 
-  // Aba Vendas é a primeira: KPIs do dia e alerta de item sem preço.
+  // KPIs do dia e alerta de item sem preço ficam na aba Vendas.
+  await page.getByRole('tab', { name: 'Vendas' }).click();
   const vendas = page.getByTestId('vendas');
   await expect(vendas.getByTestId('kpi-comandas')).toHaveText('3');
   await expect(vendas.getByTestId('mais-vendidos')).toContainText('Chopp');
@@ -179,7 +180,69 @@ test('a equipe pendente não entra; o gerente ativa o acesso', async ({ page }) 
   await page.getByRole('button', { name: 'Entrar como Marina' }).click();
   await page.getByRole('tab', { name: /Equipe/ }).click();
   await page.locator('li', { hasText: 'João' }).getByRole('button', { name: 'Ativar' }).click();
+  await expect(page.locator('li', { hasText: 'João' })).toContainText('Ativo');
 
+  // O gerente sai (ele mesmo também pode usar a tela do garçom) e o João já consegue entrar.
+  await page.getByRole('button', { name: 'Sair' }).click();
   await page.goto('./#/garcom');
   await expect(page.getByRole('button', { name: 'Entrar como João' })).toBeVisible();
+});
+
+test('cliente pede a conta, o gerente fecha no Caixa e o cliente vê a conta final', async ({
+  page,
+}) => {
+  // Cliente abre a comanda; o garçom lança 2 chopps (R$ 24,00).
+  await page.goto('./#/comanda');
+  await page.getByLabel('Nome', { exact: true }).fill('Dani Teste');
+  await page.getByLabel('Celular com DDD').fill('51 99999-0808');
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Abrir minha comanda' }).click();
+  await expect(page.getByTestId('minha-comanda')).toContainText('Dani Teste');
+
+  await page.goto('./#/garcom');
+  await page.getByRole('button', { name: 'Entrar como Carlos' }).click();
+  await page.getByLabel('Buscar comanda').fill('0808');
+  await page
+    .getByTestId('resultados')
+    .getByRole('button', { name: /Dani Teste/ })
+    .click();
+  const painel = page.getByTestId('painel-comanda');
+  await painel.getByRole('button', { name: 'Adicionar Chopp' }).click();
+  await painel.getByRole('button', { name: 'Adicionar Chopp' }).click();
+  await expect(painel.getByTestId('total-comanda')).toHaveText(/R\$\s*24,00/);
+
+  // O cliente pede a conta.
+  await page.goto('./#/comanda');
+  await expect(page.getByTestId('total-cliente')).toHaveText(/R\$\s*24,00/);
+  await page.getByTestId('pedir-conta').click();
+  await expect(page.getByTestId('conta-pedida')).toBeVisible();
+
+  // O gerente vê a conta na fila do Caixa e fecha com a forma de pagamento.
+  await page.goto('./#/gerente');
+  await page.getByRole('button', { name: 'Entrar como Marina' }).click();
+  await expect(page.getByRole('tab', { name: /Caixa/ })).toContainText('1');
+  const fila = page.getByTestId('fila-caixa');
+  await expect(fila).toContainText('Dani Teste');
+
+  await fila.getByRole('button', { name: /^Fechar conta$/ }).click();
+  await fila.getByRole('button', { name: /Fechar a conta da comanda/ }).click();
+  await expect(fila.getByRole('alert')).toContainText('Escolha como a conta foi paga');
+  await fila.getByLabel(/Forma de pagamento/).selectOption('pix');
+  await fila.getByRole('button', { name: /Fechar a conta da comanda/ }).click();
+  await expect(page.getByTestId('resumo-caixa')).toContainText('Nenhuma conta pedida');
+
+  // O cliente vê a conta final fechada, e o garçom não lança mais.
+  await page.goto('./#/comanda');
+  await expect(page.getByTestId('conta-final')).toContainText('R$');
+  await expect(page.getByTestId('total-cliente')).toHaveText(/R\$\s*24,00/);
+  await expect(page.getByTestId('pedir-conta')).toHaveCount(0);
+
+  await page.goto('./#/garcom');
+  await page.getByLabel('Buscar comanda').fill('0808');
+  await page
+    .getByTestId('resultados')
+    .getByRole('button', { name: /Dani Teste/ })
+    .click();
+  await expect(page.getByTestId('painel-comanda')).toContainText('não aceita mais itens');
+  await expect(page.getByRole('button', { name: 'Adicionar Chopp' })).toHaveCount(0);
 });

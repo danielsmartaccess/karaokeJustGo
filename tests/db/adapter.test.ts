@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- fixture de teste */
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createSupabaseBackend, type Rpc } from '@/comandas/backend/supabaseBackend';
