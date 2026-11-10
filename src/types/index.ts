@@ -38,7 +38,7 @@ export interface QueueEntry {
   status: QueueStatus;
 }
 
-export type AppView = 'participant' | 'tv' | 'host';
+export type AppView = 'participant' | 'tv' | 'host' | 'comanda' | 'garcom' | 'gerente';
 
 // --- Telão ---
 

@@ -1,12 +1,15 @@
-import { useEffect, useState, type ElementType } from 'react';
+import { lazy, Suspense, useEffect, useState, type ElementType } from 'react';
 import { KaraokeProvider } from './store/KaraokeContext';
 import ParticipantView from './views/ParticipantView';
 import TVQueueView from './views/TVQueueView';
 import HostView from './views/HostView';
 import HostLogin from './views/HostLogin';
-import { ROUTES, viewFromHash } from './lib/urls';
+import { ROUTES, isComandaView, viewFromHash } from './lib/urls';
 import type { AppView } from './types';
 import { Mic2, Tv2, Star } from 'lucide-react';
+
+// As comandas ficam num módulo à parte: quem abre o telão não baixa esse código.
+const ComandaApp = lazy(() => import('./comandas/ComandaApp'));
 
 const NAV_ITEMS: { id: AppView; label: string; icon: ElementType }[] = [
   { id: 'participant', label: 'Participar', icon: Mic2 },
@@ -32,8 +35,7 @@ function useHashRoute(): [AppView, (view: AppView) => void] {
   return [view, navigate];
 }
 
-function AppContent() {
-  const [view, navigate] = useHashRoute();
+function AppContent({ view, navigate }: { view: AppView; navigate: (view: AppView) => void }) {
   const [hostName, setHostName] = useState<string | null>(() =>
     localStorage.getItem(HOST_NAME_KEY),
   );
@@ -88,9 +90,21 @@ function AppContent() {
 }
 
 export default function App() {
+  const [view, navigate] = useHashRoute();
+
+  // Comandas e karaokê são produtos separados: cada um com o seu estado, e a
+  // sala do karaokê nem abre conexão quando só se usa a comanda.
+  if (isComandaView(view)) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-[#06000e]" />}>
+        <ComandaApp view={view} />
+      </Suspense>
+    );
+  }
+
   return (
     <KaraokeProvider>
-      <AppContent />
+      <AppContent view={view} navigate={navigate} />
     </KaraokeProvider>
   );
 }

@@ -73,13 +73,14 @@ marcada no projeto, e isso não deve ser presumido.
 Toda variável `VITE_*` é **embutida no bundle público** em tempo de build. Mudar o valor exige
 um novo deploy. Nenhuma delas é segredo.
 
-| Nome                     | Classe         | Obrigatória | Escopo sugerido na Vercel | Observação                                              |
-| ------------------------ | -------------- | ----------- | ------------------------- | ------------------------------------------------------- |
-| `VITE_SUPABASE_URL`      | Pública        | Sim         | Production (Preview: ver) | Sem ela o app sobe em **modo demo**                     |
-| `VITE_SUPABASE_ANON_KEY` | Pública        | Sim         | Production (Preview: ver) | Chave `anon`/publicável; a proteção real é o RLS        |
-| `VITE_KARAOKE_ROOM_SLUG` | Pública        | Não         | Production                | Padrão `just-go`. **Typo cria uma sala nova e vazia**   |
-| `VITE_YOUTUBE_API_KEY`   | Pública\*      | Não         | Production                | Hoje **não** é passada pelo CI; produção usa o catálogo |
-| `BASE_PATH`              | Build, pública | Recomendada | Todos                     | Valor: `/`                                              |
+| Nome                     | Classe         | Obrigatória | Escopo sugerido na Vercel | Observação                                                                                                       |
+| ------------------------ | -------------- | ----------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`      | Pública        | Sim         | Production (Preview: ver) | Sem ela o app sobe em **modo demo**                                                                              |
+| `VITE_SUPABASE_ANON_KEY` | Pública        | Sim         | Production (Preview: ver) | Chave `anon`/publicável; a proteção real é o RLS                                                                 |
+| `VITE_KARAOKE_ROOM_SLUG` | Pública        | Não         | Production                | Padrão `just-go`. **Typo cria uma sala nova e vazia**                                                            |
+| `VITE_COMANDAS_LIVE`     | Pública        | Não         | Production                | **Só** `true` depois de aplicar as migrations das comandas (ver COMANDAS-REVISAO-SQL.md). Ausente = demonstração |
+| `VITE_YOUTUBE_API_KEY`   | Pública\*      | Não         | Production                | Hoje **não** é passada pelo CI; produção usa o catálogo                                                          |
+| `BASE_PATH`              | Build, pública | Recomendada | Todos                     | Valor: `/`                                                                                                       |
 
 \* A chave do YouTube vira pública ao entrar no bundle. Se for habilitada, restrinja-a no
 Google Cloud por referenciador HTTP (incluindo o domínio da Vercel) e somente à YouTube Data
