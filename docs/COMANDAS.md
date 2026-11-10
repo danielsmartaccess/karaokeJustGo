@@ -290,22 +290,26 @@ precificar depois fecha a conta do dia. O estorno é parcial (uma unidade de uma
 código). O provedor das comandas é separado do provedor do karaokê, então a sala do karaokê **não
 abre conexão** quando só se usa a comanda.
 
-## 14. Fase 0 em arquivo (2026-11-10): banco real, ainda NÃO aplicado
+## 14. Fase 0 (2026-11-10): banco real das comandas, aplicado
 
 **Decisão do dono (2026-11-10):** usar o projeto Supabase que já existe para tudo (karaokê e
 comandas), sem projeto de homologação separado (custo). Os dados atuais são de teste. Por isso a
 Fase 0 foi escrita para ser **aditiva e isolada** e foi testada num Postgres local antes de qualquer
 aplicação remota.
 
-**O que existe (nada aplicado em banco remoto; guia de revisão em [COMANDAS-REVISAO-SQL.md](COMANDAS-REVISAO-SQL.md)):**
+**Estado (2026-11-10): as 5 migrations foram aplicadas no projeto Supabase** (o mesmo do karaokê), uma por
+vez, com autorização do dono e verificação de segurança depois de cada uma. Os arquivos têm as versões
+que o Supabase registrou. O primeiro gerente foi criado direto no banco e o catálogo começa vazio.
+A integração GitHub e Supabase está **desligada**, então enviar o código ao GitHub não aplica nada.
+Guia de revisão: [COMANDAS-REVISAO-SQL.md](COMANDAS-REVISAO-SQL.md).
 
 | Arquivo (`supabase/migrations/`)                | Conteúdo                                                                       |
 | ----------------------------------------------- | ------------------------------------------------------------------------------ |
-| `20261110120000_comandas_core.sql`              | Tipos, 5 tabelas `comanda_*`, RLS sem políticas, livro-razão só de acréscimo   |
-| `20261110120100_comandas_client_functions.sql`  | Cliente sem login: abrir, ver a própria comanda, pedir a conta                 |
-| `20261110120200_comandas_staff_functions.sql`   | Equipe: cadastro, busca, lançar, estornar, confirmar celular, recuperar acesso |
-| `20261110120300_comandas_manager_functions.sql` | Gerente: fechar, reabrir, anular, catálogo e preços, equipe, relatório         |
-| `20261110120400_comandas_sales_assist.sql`      | "Costuma sair junto" (cruza comandas) e o "−" do cardápio                      |
+| `20261110151326_comandas_core.sql`              | Tipos, 5 tabelas `comanda_*`, RLS sem políticas, livro-razão só de acréscimo   |
+| `20261110152826_comandas_client_functions.sql`  | Cliente sem login: abrir, ver a própria comanda, pedir a conta                 |
+| `20261110153012_comandas_staff_functions.sql`   | Equipe: cadastro, busca, lançar, estornar, confirmar celular, recuperar acesso |
+| `20261110153632_comandas_manager_functions.sql` | Gerente: fechar, reabrir, anular, catálogo e preços, equipe, relatório         |
+| `20261110155639_comandas_sales_assist.sql`      | "Costuma sair junto" (cruza comandas) e o "−" do cardápio                      |
 
 **Postura de acesso.** As tabelas têm RLS ligado, **nenhuma política** e nenhum privilégio para
 `anon`/`authenticated`. Todo acesso passa por funções `SECURITY DEFINER` que conferem o papel da

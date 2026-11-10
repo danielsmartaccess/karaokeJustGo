@@ -1,7 +1,9 @@
 # Comandas: guia para revisar o SQL e autorizar a aplicação
 
-Para o dono, sem precisar saber SQL. Nada abaixo foi aplicado: as 5 migrations existem só em
-arquivo e foram testadas num Postgres local (`npm test`, pasta `tests/db/`, 94 testes).
+Para o dono, sem precisar saber SQL. **Histórico:** este guia foi escrito antes da aplicação. Em
+2026-11-10 as 5 migrations foram aplicadas, uma por vez, com autorização do dono e conferência de
+segurança depois de cada uma (o que está descrito abaixo como "plano" foi o que se fez). Elas foram
+testadas antes num Postgres local (`npm test`, pasta `tests/db/`, 99 testes).
 
 **Regra de ouro:** eu só aplico uma migration depois de você escrever, no chat, **"aplique a
 migration N"**. Uma por vez. Depois de cada uma eu rodo o verificador de segurança do Supabase e te
@@ -22,11 +24,11 @@ lê as tabelas do karaokê, nem as antigas.
 
 | #   | Arquivo                                         | Em uma frase                                                                                              | O que olhar                                                                                                                           |
 | --- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `20261110120000_comandas_core.sql`              | Cria as 5 tabelas, tranca todas (sem acesso direto para ninguém) e protege o livro-razão contra alteração | Procure `enable row level security` e `revoke all` nas 5 tabelas; o bloco `comanda_forbid_change` impede editar ou apagar lançamentos |
-| 2   | `20261110120100_comandas_client_functions.sql`  | Três portas para o **cliente sem login**: abrir comanda, ver a própria, pedir a conta                     | O segredo é gerado no banco e só o **hash** fica guardado; segredo errado e comanda inexistente dão a mesma resposta                  |
-| 3   | `20261110120200_comandas_staff_functions.sql`   | Portas da **equipe**: cadastro, busca, lançar, estornar, confirmar celular, recuperar acesso              | Toda função chama `comanda_require_role`: sem ser da equipe ativa, devolve `forbidden`. O garçom nunca recebe o telefone inteiro      |
-| 4   | `20261110120300_comandas_manager_functions.sql` | Portas do **gerente**: fechar, reabrir, anular, catálogo e preços, equipe, relatório                      | `comanda_close_tab` congela o total e recusa itens sem preço; o gerente não desativa a si mesmo                                       |
-| 5   | `20261110120400_comandas_sales_assist.sql`      | "Costuma sair junto" e o botão "−" do cardápio                                                            | Só lê comandas e cria estornos; nada novo em acesso                                                                                   |
+| 1   | `20261110151326_comandas_core.sql`              | Cria as 5 tabelas, tranca todas (sem acesso direto para ninguém) e protege o livro-razão contra alteração | Procure `enable row level security` e `revoke all` nas 5 tabelas; o bloco `comanda_forbid_change` impede editar ou apagar lançamentos |
+| 2   | `20261110152826_comandas_client_functions.sql`  | Três portas para o **cliente sem login**: abrir comanda, ver a própria, pedir a conta                     | O segredo é gerado no banco e só o **hash** fica guardado; segredo errado e comanda inexistente dão a mesma resposta                  |
+| 3   | `20261110153012_comandas_staff_functions.sql`   | Portas da **equipe**: cadastro, busca, lançar, estornar, confirmar celular, recuperar acesso              | Toda função chama `comanda_require_role`: sem ser da equipe ativa, devolve `forbidden`. O garçom nunca recebe o telefone inteiro      |
+| 4   | `20261110153632_comandas_manager_functions.sql` | Portas do **gerente**: fechar, reabrir, anular, catálogo e preços, equipe, relatório                      | `comanda_close_tab` congela o total e recusa itens sem preço; o gerente não desativa a si mesmo                                       |
+| 5   | `20261110155639_comandas_sales_assist.sql`      | "Costuma sair junto" e o botão "−" do cardápio                                                            | Só lê comandas e cria estornos; nada novo em acesso                                                                                   |
 
 **Padrão de segurança que se repete (confira em qualquer função):**
 
